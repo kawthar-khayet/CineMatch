@@ -1,0 +1,9 @@
+# Secrets : ne jamais versionner
+.env
+
+# Environnement virtuel Python
+.venv/
+
+# Fichiers générés automatiquement par Python
+__pycache__/
+*.pyc
