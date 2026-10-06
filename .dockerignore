@@ -1,0 +1,13 @@
+# Fichiers à NE PAS envoyer à Docker lors de la construction des images
+
+# Secrets : ne doivent jamais se retrouver dans une image
+.env
+
+# Lourds et inutiles pour construire une image
+.venv/
+.git/
+__pycache__/
+*.pyc
+
+# Réglages personnels de l'éditeur
+.vscode/

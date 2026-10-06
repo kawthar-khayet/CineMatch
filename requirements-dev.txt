@@ -1,4 +1,0 @@
-# Bibliothèques pour développer en local (étape 1)
-requests>=2.31
-python-dotenv>=1.0
-boto3>=1.34
