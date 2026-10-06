@@ -1,0 +1,182 @@
+version: 2
+
+models:
+  - name: dim_movie
+    description: >
+      1 ligne par film (tmdb_id) : films à fiche TMDB complète et films MovieLens (titre et année seulement),
+      avec la note IMDb la plus récente. has_tmdb_details indique si la fiche TMDB est disponible.
+    columns:
+      - name: tmdb_id
+        data_tests: [unique, not_null]
+      - name: title
+        data_tests: [not_null]
+      - name: runtime_bucket
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["< 1h30", "1h30 - 2h", "> 2h", "inconnue"]
+      - name: imdb_rating
+        description: Peut être vide (film sans note IMDb, ex. trop récent).
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1
+                max_value: 10
+
+  - name: dim_person
+    description: 1 ligne par acteur ou réalisateur.
+    columns:
+      - name: person_id
+        data_tests: [unique, not_null]
+
+  - name: dim_genre
+    description: 1 ligne par genre TMDB.
+    columns:
+      - name: genre_id
+        data_tests: [unique, not_null]
+
+  - name: dim_date
+    description: 1 ligne par jour, de 1995 à 2030.
+    columns:
+      - name: date_key
+        data_tests: [unique, not_null]
+
+  # --- Tables de pont ---
+
+  - name: bridge_movie_person
+    description: 1 ligne par film × personne × rôle.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [tmdb_id, person_id, role]
+    columns:
+      - name: tmdb_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_movie')
+                field: tmdb_id
+      - name: person_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_person')
+                field: person_id
+
+  - name: bridge_movie_genre
+    description: 1 ligne par film × genre.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [tmdb_id, genre_id]
+    columns:
+      - name: tmdb_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_movie')
+                field: tmdb_id
+      - name: genre_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_genre')
+                field: genre_id
+
+  # --- Faits ---
+
+  - name: fact_ratings
+    description: 1 ligne par note d'un utilisateur MovieLens pour un film.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [user_id, movielens_movie_id]
+    columns:
+      - name: tmdb_id
+        description: Vide pour les rares films MovieLens sans identifiant TMDB.
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_movie')
+                field: tmdb_id
+      - name: date_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_key
+      - name: rating
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0.5
+                max_value: 5
+
+  - name: fact_trending_daily
+    description: 1 ligne par jour × film (rang dans la liste tendance de TMDB). Incrémental.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [snapshot_date, tmdb_id]
+    columns:
+      - name: tmdb_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_movie')
+                field: tmdb_id
+      - name: date_key
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_key
+
+  # --- Indicateurs ---
+
+  - name: mart_hype_or_gem
+    description: >
+      Indice « Hype ou Pépite » (version 1) : 1 ligne par film classé, en croisant le buzz (liste tendance TMDB
+      du dernier jour) et la qualité (note IMDb). Seuils définis dans les vars de dbt_project.yml.
+    columns:
+      - name: tmdb_id
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_movie')
+                field: tmdb_id
+      - name: category
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [vraie_tendance, buzz_trompeur, tendance_moyenne, tendance_non_notee, pepite_cachee]
+      - name: explanation
+        data_tests: [not_null]
+
+  - name: fact_imdb_ratings_daily
+    description: 1 ligne par jour × film (note et votes IMDb). Incrémental. Historique pour le Radar.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [snapshot_date, tmdb_id]
+    columns:
+      - name: tmdb_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_movie')
+                field: tmdb_id
+      - name: date_key
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_key

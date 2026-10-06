@@ -9,7 +9,7 @@ Exécution : docker compose run --rm spark-jobs python -m cinematch.transform.si
 
 import argparse
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from delta.tables import DeltaTable
 from pyspark.sql import DataFrame, SparkSession
@@ -23,7 +23,10 @@ log = logging.getLogger(__name__)
 
 def catalog_imdb_ids(spark: SparkSession) -> DataFrame:
     """Les identifiants IMDb des films de notre catalogue : TMDB + MovieLens, sans doublon."""
-    sources = {"tmdb_movies": lake_path("silver", "tmdb_movies"), "movielens_links": lake_path("silver", "movielens_links")}
+    sources = {
+        "tmdb_movies": lake_path("silver", "tmdb_movies"),
+        "movielens_links": lake_path("silver", "movielens_links"),
+    }
     for name, path in sources.items():
         if not DeltaTable.isDeltaTable(spark, path):
             raise RuntimeError(f"La table Silver {name} n'existe pas : lancez d'abord silver_tmdb et silver_movielens")
@@ -33,14 +36,12 @@ def catalog_imdb_ids(spark: SparkSession) -> DataFrame:
 
 
 def ratings_daily(raw: DataFrame, catalog: DataFrame, ingest_date: str) -> DataFrame:
-    return (
-        raw.join(catalog, raw.tconst == catalog.imdb_id, "left_semi")  # garde seulement les films du catalogue
-        .select(
-            F.to_date(F.lit(ingest_date)).alias("snapshot_date"),
-            F.col("tconst").alias("imdb_id"),
-            F.col("averageRating").cast("double").alias("imdb_rating"),
-            F.col("numVotes").cast("int").alias("imdb_num_votes"),
-        )
+    # left_semi : garde seulement les films du catalogue
+    return raw.join(catalog, raw.tconst == catalog.imdb_id, "left_semi").select(
+        F.to_date(F.lit(ingest_date)).alias("snapshot_date"),
+        F.col("tconst").alias("imdb_id"),
+        F.col("averageRating").cast("double").alias("imdb_rating"),
+        F.col("numVotes").cast("int").alias("imdb_num_votes"),
     )
 
 
@@ -71,7 +72,7 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     parser = argparse.ArgumentParser(description="Bronze → Silver pour IMDb")
     parser.add_argument(
-        "--date", default=datetime.now(timezone.utc).date().isoformat(), help="partition Bronze à traiter (AAAA-MM-JJ)"
+        "--date", default=datetime.now(UTC).date().isoformat(), help="partition Bronze à traiter (AAAA-MM-JJ)"
     )
     run(parser.parse_args().date)
 

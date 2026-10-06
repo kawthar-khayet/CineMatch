@@ -41,10 +41,10 @@
 
 ## 3. Détail par source
 
-### 3.1 TMDB — classements
-- **Appels** : `/trending/movie/day` et `/movie/popular`, 5 pages chacun (configurable).
-- **Bronze** : `bronze/tmdb/rankings/ingest_date=YYYY-MM-DD/`
-- **Champs conservés** : `id`, rang (calculé), `popularity`, `vote_average`, `vote_count`, nom du classement.
+### 3.1 TMDB — liste tendance
+- **Appel** : `/trending/movie/day`, 5 pages (configurable).
+- **Bronze** : `bronze/tmdb/trending/ingest_date=YYYY-MM-DD/`
+- **Champs conservés** : `id`, rang (calculé), `popularity`.
 
 ### 3.2 TMDB — fiches films
 - **Appel** : `/movie/{id}?append_to_response=credits&language=en-US`
@@ -127,12 +127,11 @@
 | `cast_order` | entier | Ordre au générique (0 = premier rôle) |
 | `person_popularity` | décimal | Popularité TMDB de la personne |
 
-### `tmdb_rankings_daily` — 1 ligne par jour × classement × film
+### `tmdb_trending_daily` — 1 ligne par jour × film
 | Colonne | Type | Description |
 |---|---|---|
-| `snapshot_date` | date | Jour du classement |
-| `list_name` | texte | `trending_day` ou `popular` |
-| `rank` | entier | Position dans le classement |
+| `snapshot_date` | date | Jour du classement (**clé**, avec `tmdb_id`) |
+| `rank` | entier | Position dans la liste tendance (meilleur rang si le film apparaît deux fois) |
 | `tmdb_id` | entier | Film |
 | `popularity` | décimal | Popularité ce jour-là |
 

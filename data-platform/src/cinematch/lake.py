@@ -69,5 +69,5 @@ def delete_prefix(prefix: str) -> int:
 
 if __name__ == "__main__":
     test_key = "tests/hello.txt"
-    put_bytes(test_key, "Bonjour depuis CineMatch !".encode("utf-8"), "text/plain")
+    put_bytes(test_key, b"Bonjour depuis CineMatch !", "text/plain")
     print(f"Fichier déposé : s3://{get_settings().lakehouse_bucket}/{test_key}")

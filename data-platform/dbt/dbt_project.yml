@@ -10,6 +10,15 @@ test-paths: ["tests"]
 target-path: target         # dossier des fichiers générés (ignoré par Git)
 clean-targets: [target, dbt_packages]
 
+# Seuils de l'indice « Hype ou Pépite » (version 1) : modifiables ici, sans toucher au SQL.
+# Exemple pour les tester autrement : dbt build --vars '{"gem_min_rating": 8}'
+vars:
+  true_trend_min_rating: 7.0      # tendance + note IMDb ≥ 7    → vraie tendance
+  misleading_max_rating: 6.0      # tendance + note IMDb < 6    → buzz trompeur
+  gem_min_rating: 7.5             # hors tendance + note ≥ 7,5…
+  gem_min_votes: 1000             # …avec assez de votes pour que la note soit fiable…
+  gem_max_votes: 50000            # …mais peu connu                → pépite cachée
+
 models:
   cinematch:
     staging:                # léger nettoyage des tables Silver
@@ -18,3 +27,5 @@ models:
     marts:                  # la couche Gold : le modèle en étoile et les indicateurs
       +schema: marts
       +materialized: table  # une vraie table : rapide à interroger pour la BI et l'API
+    _later:                 # modèles prévus pour plus tard (streaming, recommandation) : ignorés par dbt
+      +enabled: false

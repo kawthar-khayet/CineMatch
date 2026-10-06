@@ -63,7 +63,7 @@ Le tout est **orchestré par Airflow**, **conteneurisé avec Docker Compose** et
 
 | Source | Type | Fréquence | Contenu | Rôle métier |
 |---|---|---|---|---|
-| **API TMDB** | API REST (JSON) | Quotidienne | Films, genres, durée, langue, notes, acteurs, réalisateurs, classements *trending* et *popular* | Catalogue + premier signal de tendance |
+| **API TMDB** | API REST (JSON) | Quotidienne | Films, genres, durée, langue, notes, acteurs, réalisateurs, classement *trending* du jour | Catalogue + premier signal de tendance |
 | **MovieLens** (`ml-latest-small`) | Fichiers CSV | Une seule fois (snapshot) | ~100 000 notes, 610 utilisateurs, table de liens vers TMDB | Historique et goûts des utilisateurs |
 | **API Wikipédia Pageviews** | API REST (JSON) | Quotidienne, incrémentale | Vues quotidiennes de la page de chaque film | Signal de tendance indépendant |
 | **Événements utilisateurs** | Flux Kafka | Continu | Recherches, consultations, bandes-annonces, ajouts en liste, notes | Temps réel : « ce film monte maintenant » |
@@ -102,13 +102,13 @@ Le tout est **orchestré par Airflow**, **conteneurisé avec Docker Compose** et
 lakehouse/
 ├── bronze/
 │   ├── tmdb/movie_details/ingest_date=YYYY-MM-DD/
-│   ├── tmdb/rankings/ingest_date=YYYY-MM-DD/
+│   ├── tmdb/trending/ingest_date=YYYY-MM-DD/
 │   ├── movielens/{ratings,movies,links,tags}/snapshot=ml-latest-small/
 │   ├── wikipedia/pageviews/ingest_date=YYYY-MM-DD/
 │   └── events/user_events/event_date=YYYY-MM-DD/
 ├── silver/
 │   ├── tmdb_movies/            tmdb_movie_genres/
-│   ├── tmdb_movie_people/      tmdb_rankings_daily/
+│   ├── tmdb_movie_people/      tmdb_trending_daily/
 │   ├── movielens_ratings/      movielens_links/
 │   ├── wiki_pageviews_daily/   user_events/
 └── _checkpoints/               (état du streaming)
@@ -138,7 +138,7 @@ Trois niveaux dans Postgres :
 ```mermaid
 erDiagram
     dim_movie ||--o{ fact_ratings : tmdb_id
-    dim_movie ||--o{ fact_movie_rankings_daily : tmdb_id
+    dim_movie ||--o{ fact_movie_trending_daily : tmdb_id
     dim_movie ||--o{ fact_movie_pageviews_daily : tmdb_id
     dim_movie ||--o{ fact_user_events : tmdb_id
     dim_movie ||--o{ bridge_movie_person : tmdb_id
@@ -148,7 +148,7 @@ erDiagram
     dim_user ||--o{ fact_ratings : user_id
     dim_user ||--o{ fact_user_events : user_id
     dim_date ||--o{ fact_ratings : date_key
-    dim_date ||--o{ fact_movie_rankings_daily : date_key
+    dim_date ||--o{ fact_movie_trending_daily : date_key
 ```
 
 ### Dimensions
@@ -170,7 +170,7 @@ erDiagram
 | Table | Grain | Chargement |
 |---|---|---|
 | `fact_ratings` | 1 note par utilisateur × film | Incrémental |
-| `fact_movie_rankings_daily` | 1 ligne par jour × classement × film | Incrémental |
+| `fact_movie_trending_daily` | 1 ligne par jour × film (rang tendance) | Incrémental |
 | `fact_movie_pageviews_daily` | 1 ligne par jour × film | Incrémental |
 | `fact_user_events` | 1 ligne par événement | Incrémental (depuis le streaming) |
 

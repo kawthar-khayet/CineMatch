@@ -5,7 +5,7 @@ Exécution : python -m cinematch.ingestion.tmdb --date 2026-10-05 --pages 5
 
 import argparse
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import requests
 
@@ -46,7 +46,7 @@ def fetch_movie_details(movie_id: int) -> dict:
 
 def run(ingest_date: str, pages: int = 5) -> dict:
     """Ingère les films tendance et leurs fiches complètes dans Bronze, pour une date donnée."""
-    ingested_at = datetime.now(timezone.utc).isoformat()
+    ingested_at = datetime.now(UTC).isoformat()
 
     # Idempotence : on vide la partition du jour avant de la réécrire
     for dataset in ("trending", "movie_details"):
@@ -91,7 +91,7 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     parser = argparse.ArgumentParser(description="Ingestion TMDB vers Bronze")
     parser.add_argument(
-        "--date", default=datetime.now(timezone.utc).date().isoformat(), help="date d'ingestion (AAAA-MM-JJ, UTC)"
+        "--date", default=datetime.now(UTC).date().isoformat(), help="date d'ingestion (AAAA-MM-JJ, UTC)"
     )
     parser.add_argument("--pages", type=int, default=5, help="nombre de pages de la liste tendance")
     args = parser.parse_args()

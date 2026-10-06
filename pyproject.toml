@@ -1,0 +1,10 @@
+# Configuration des outils Python du projet (les dépendances sont dans requirements.txt).
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"          # même version que les images Docker (python:3.11)
+
+[tool.ruff.lint]
+# E/W : style PEP 8 · F : erreurs (import inutilisé, variable non définie…) · I : ordre des imports
+# UP : syntaxe Python moderne · B : pièges courants (bugbear)
+select = ["E", "W", "F", "I", "UP", "B"]

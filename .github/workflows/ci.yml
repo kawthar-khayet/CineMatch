@@ -1,0 +1,52 @@
+# Intégration continue : vérifications rapides à chaque push et pull request, sans base de données ni Docker.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read            # la CI lit le code, elle ne modifie rien
+
+concurrency:                # un nouveau push annule la vérification encore en cours sur la même branche
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    name: Python (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"          # même version que les images Docker
+      - run: pip install ruff
+      - name: Erreurs et style (règles dans pyproject.toml)
+        run: ruff check data-platform/src backend
+      - name: Mise en forme
+        run: ruff format --check data-platform/src backend
+
+  dbt:
+    name: dbt (parse)
+    runs-on: ubuntu-latest
+    env:
+      DBT_PROJECT_DIR: data-platform/dbt
+      DBT_PROFILES_DIR: data-platform/dbt
+      # « dbt parse » ne se connecte pas à Postgres, mais profiles.yml exige ces variables : valeurs factices
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: ci
+      POSTGRES_PASSWORD: ci
+      POSTGRES_DB: ci
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Installer dbt (mêmes versions que requirements.txt, sans Spark)
+        run: pip install $(grep -E '^dbt-' requirements.txt | cut -d' ' -f1)
+      - run: dbt deps
+      - name: Compiler le projet (un avertissement fait échouer la CI)
+        run: dbt parse --warn-error

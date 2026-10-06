@@ -41,7 +41,11 @@ def run(ingest_date: str) -> dict:
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     parser = argparse.ArgumentParser(description="Ingestion IMDb vers Bronze")
-    parser.add_argument("--date", default=datetime.datetime.now(tz=datetime.UTC).date().isoformat(), help="date d'ingestion (AAAA-MM-JJ)")
+    parser.add_argument(
+        "--date",
+        default=datetime.datetime.now(tz=datetime.UTC).date().isoformat(),
+        help="date d'ingestion (AAAA-MM-JJ)",
+    )
     run(parser.parse_args().date)
 
 

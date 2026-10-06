@@ -11,7 +11,7 @@ Exécution : docker compose run --rm spark-jobs python -m cinematch.transform.si
 
 import argparse
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
@@ -133,7 +133,7 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     parser = argparse.ArgumentParser(description="Bronze → Silver pour TMDB")
     parser.add_argument(
-        "--date", default=datetime.now(timezone.utc).date().isoformat(), help="partition Bronze à traiter (AAAA-MM-JJ)"
+        "--date", default=datetime.now(UTC).date().isoformat(), help="partition Bronze à traiter (AAAA-MM-JJ)"
     )
     run(parser.parse_args().date)
 
