@@ -1,0 +1,4 @@
+# Paquets dbt externes, installés avec : dbt deps
+packages:
+  - package: dbt-labs/dbt_utils    # tests et macros utiles (ex. vérifier qu'une valeur est dans une plage)
+    version: [">=1.3.0", "<2.0.0"]

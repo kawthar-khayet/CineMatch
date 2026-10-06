@@ -1,0 +1,74 @@
+version: 2
+
+# Syntaxe des tests dbt 1.10+ (compatible dbt v2) : les paramètres d'un test passent sous la clé « arguments ».
+
+models:
+  - name: stg_tmdb__movies
+    description: Films TMDB, 1 ligne par film.
+    columns:
+      - name: tmdb_id
+        data_tests: [unique, not_null]
+      - name: tmdb_vote_average
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 10
+
+  - name: stg_tmdb__movie_genres
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [tmdb_id, genre_id]
+
+  - name: stg_tmdb__movie_people
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [tmdb_id, person_id, role]
+    columns:
+      - name: role
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [actor, director]
+
+  - name: stg_tmdb__trending_daily
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [snapshot_date, tmdb_id]
+    columns:
+      - name: trending_rank
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1
+
+  - name: stg_imdb__ratings_daily
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [snapshot_date, imdb_id]
+    columns:
+      - name: imdb_rating
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1
+                max_value: 10
+
+  - name: stg_movielens__ratings
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [user_id, movielens_movie_id]
+    columns:
+      - name: rating
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0.5
+                max_value: 5

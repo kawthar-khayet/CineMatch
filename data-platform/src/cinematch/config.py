@@ -23,9 +23,19 @@ class Settings:
 
     s3_endpoint: str
     lakehouse_bucket: str
+    postgres_host: str
+    postgres_port: int
+    postgres_db: str
+    postgres_user: str
     tmdb_api_token: str = field(repr=False)
     s3_access_key: str = field(repr=False)
     s3_secret_key: str = field(repr=False)
+    postgres_password: str = field(repr=False)
+
+    @property
+    def jdbc_url(self) -> str:
+        """Adresse de Postgres au format JDBC, utilisé par Spark (Java)."""
+        return f"jdbc:postgresql://{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
 
 
 def get_settings() -> Settings:
@@ -33,9 +43,14 @@ def get_settings() -> Settings:
     return Settings(
         s3_endpoint=_require("S3_ENDPOINT"),
         lakehouse_bucket=_require("LAKEHOUSE_BUCKET"),
+        postgres_host=_require("POSTGRES_HOST"),
+        postgres_port=int(_require("POSTGRES_PORT")),
+        postgres_db=_require("POSTGRES_DB"),
+        postgres_user=_require("POSTGRES_USER"),
         tmdb_api_token=_require("TMDB_API_TOKEN"),
         s3_access_key=_require("S3_ACCESS_KEY"),
         s3_secret_key=_require("S3_SECRET_KEY"),
+        postgres_password=_require("POSTGRES_PASSWORD"),
     )
 
 

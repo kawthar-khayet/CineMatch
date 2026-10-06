@@ -5,8 +5,10 @@ from pyspark.sql import SparkSession
 
 from cinematch.config import get_settings
 
-# Connecteur S3A d'Hadoop : il permet à Spark de lire et d'écrire des chemins s3a://
-EXTRA_PACKAGES = ["org.apache.hadoop:hadoop-aws:3.3.4"]
+EXTRA_PACKAGES = [
+    "org.apache.hadoop:hadoop-aws:3.3.4",  # connecteur S3A : lire et écrire des chemins s3a://
+    "org.postgresql:postgresql:42.7.4",  # pilote JDBC : lire et écrire dans Postgres
+]
 
 
 def get_spark(app_name: str) -> SparkSession:
@@ -49,4 +51,18 @@ if __name__ == "__main__":
     movies.write.format("delta").mode("overwrite").save(path)
     print(f"Table Delta écrite dans {path}, relue :")
     spark.read.format("delta").load(path).orderBy("tmdb_id").show()
+
+    # Test de la connexion à Postgres : écrire la même mini-table, puis la relire
+    settings = get_settings()
+    jdbc = {
+        "url": settings.jdbc_url,
+        "user": settings.postgres_user,
+        "password": settings.postgres_password,
+        # Classe du pilote, à nommer explicitement : sinon Java ne trouve pas le jar ajouté par
+        # spark.jars.packages et lève « No suitable driver »
+        "driver": "org.postgresql.Driver",
+    }
+    movies.write.format("jdbc").options(**jdbc, dbtable="public.spark_connection_test").mode("overwrite").save()
+    print(f"Table écrite dans Postgres ({settings.jdbc_url}), relue :")
+    spark.read.format("jdbc").options(**jdbc, dbtable="public.spark_connection_test").load().orderBy("tmdb_id").show()
     spark.stop()

@@ -1,0 +1,26 @@
+version: 2
+
+sources:
+  - name: silver
+    description: Tables Silver publiées par Spark (Delta Lake) dans Postgres. Point d'entrée de dbt.
+    schema: silver
+    tables:
+      - name: tmdb_movies
+        description: Films TMDB, 1 ligne par film (état actuel).
+        loaded_at_field: ingested_at
+        freshness:
+          warn_after: {count: 2, period: day}   # avertir si les données ont plus de 2 jours
+      - name: tmdb_movie_genres
+        description: 1 ligne par film × genre.
+      - name: tmdb_movie_people
+        description: 1 ligne par film × personne × rôle (15 premiers acteurs + réalisateurs).
+      - name: tmdb_trending_daily
+        description: Rang de chaque film dans la liste tendance de TMDB, 1 ligne par jour × film.
+      - name: imdb_ratings_daily
+        description: Note et nombre de votes IMDb, 1 ligne par jour × film (catalogue uniquement).
+      - name: movielens_ratings
+        description: Notes MovieLens, 1 ligne par utilisateur × film.
+      - name: movielens_links
+        description: Correspondance des identifiants MovieLens → IMDb (format tt…) et TMDB.
+      - name: movielens_movies
+        description: Films MovieLens (titre, genres), utilisés pour les vérifications.

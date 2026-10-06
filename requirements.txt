@@ -3,10 +3,14 @@
 
 # --- Ingestion (étape 1) ---
 requests>=2.31          # appels HTTP : API TMDB, téléchargement des fichiers IMDb et MovieLens
-python-dotenv>=1.0      # lecture du fichier .env
+python-dotenv[cli]>=1.0 # lecture du fichier .env (+ la commande « dotenv run », utile pour dbt)
 boto3>=1.34             # client S3 : écriture et lecture dans le data lake
 
 # --- Transformation Bronze → Silver (étape 2) ---
 # Versions exactes (==) : Spark et Delta Lake doivent être compatibles entre eux
 pyspark==3.5.3          # moteur de traitement distribué
 delta-spark==3.2.1      # format de tables Delta Lake (version compatible avec Spark 3.5)
+
+# --- Silver → Gold (étape 3) ---
+dbt-core~=1.12.0        # transformations en SQL, tests de qualité, documentation et lignage (1.12 : support actif)
+dbt-postgres            # connexion de dbt à Postgres (pip choisit la version compatible avec dbt-core)

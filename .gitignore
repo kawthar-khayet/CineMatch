@@ -7,3 +7,10 @@
 # Fichiers générés automatiquement par Python
 __pycache__/
 *.pyc
+
+# Fichiers générés par dbt
+data-platform/dbt/target/
+data-platform/dbt/dbt_packages/
+data-platform/dbt/logs/
+/logs/
+data-platform/dbt/.user.yml

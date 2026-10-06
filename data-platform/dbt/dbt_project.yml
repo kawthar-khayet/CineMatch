@@ -1,0 +1,20 @@
+name: cinematch
+version: "0.1.0"
+config-version: 2
+profile: cinematch          # le profil de connexion à utiliser (défini dans profiles.yml)
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+test-paths: ["tests"]
+target-path: target         # dossier des fichiers générés (ignoré par Git)
+clean-targets: [target, dbt_packages]
+
+models:
+  cinematch:
+    staging:                # léger nettoyage des tables Silver
+      +schema: staging
+      +materialized: view   # une vue : une requête enregistrée, toujours à jour, sans copier les données
+    marts:                  # la couche Gold : le modèle en étoile et les indicateurs
+      +schema: marts
+      +materialized: table  # une vraie table : rapide à interroger pour la BI et l'API

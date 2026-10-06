@@ -14,6 +14,24 @@ services:
     volumes:
       - object-storage-data:/data
 
+  # Entrepôt de données : reçoit la copie de Silver, et dbt y construit Gold
+  postgres:
+    image: postgres:16
+    container_name: cinematch-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./data-platform/docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      retries: 10
+
   # Traitements Spark, lancés à la demande : docker compose run --rm spark-jobs python -m <module>
   spark-jobs:
     build:
@@ -23,14 +41,20 @@ services:
     profiles: ["jobs"]
     env_file: .env
     environment:
-      # Depuis un conteneur, le stockage se joint par le nom de son service (et non localhost)
+      # Depuis un conteneur, les autres services se joignent par leur nom (et non localhost)
       S3_ENDPOINT: http://object-storage:9000
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
     volumes:
       - ./data-platform/src:/app/src
       - spark-ivy-cache:/root/.ivy2
     depends_on:
-      - object-storage
+      object-storage:
+        condition: service_started
+      postgres:
+        condition: service_healthy
 
 volumes:
   object-storage-data:
+  postgres-data:
   spark-ivy-cache:
