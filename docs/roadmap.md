@@ -1,15 +1,17 @@
 # Feuille de route — 4 semaines
 
-## Semaine 1 — Socle et batch
-- [ ] `docker compose up` fonctionne (Postgres, MinIO, Airflow)
-- [ ] Ingestion MovieLens → Bronze
-- [ ] Ingestion TMDB → Bronze (classements + fiches avec crédits)
-- [ ] Spark Bronze → Silver (Delta) + publication Postgres
-- [ ] Premier passage complet du DAG `cinematch_batch_daily`
+## Semaine 1 — Socle et batch ✅
+- [x] `docker compose up` fonctionne (Postgres, RustFS, Airflow)
+- [x] Ingestion MovieLens → Bronze
+- [x] Ingestion TMDB → Bronze (classements + fiches avec crédits)
+- [x] Ingestion IMDb → Bronze (notes + type de contenu)
+- [x] Spark Bronze → Silver (Delta) + publication Postgres
+- [x] Premier passage complet du DAG `cinematch_batch_daily` (2026-10-08, 4 min, 9 tâches)
 
 ## Semaine 2 — Gold et qualité (rendre le dépôt présentable)
-- [ ] `dbt build` vert : staging, snapshot SCD2, étoile
-- [ ] Tests dbt + fraîcheur des sources
+- [x] `dbt build` vert : staging, étoile, indice « Hype ou Pépite » (74 modèles et tests)
+- [ ] Snapshot SCD2 (`snap_tmdb_movies.yml`) branché dans `dim_movie` et dans le DAG
+- [x] Tests dbt + fraîcheur des sources (dont le test métier `assert_gems_are_movies`)
 - [ ] README avec capture du DAG Airflow et du lignage dbt
 - [ ] **Commencer à postuler**, avec le lien GitHub dans le CV
 
@@ -39,19 +41,19 @@
 ## Compétences du sujet → où elles sont démontrées
 | Compétence | Emplacement |
 |---|---|
-| Ingestion 2 à 3 sources | `src/cinematch/ingestion/` (TMDB, MovieLens, Wikipédia, Kafka) |
+| Ingestion 2 à 3 sources | `src/cinematch/ingestion/` (TMDB, IMDb, MovieLens ; Wikipédia et Kafka à venir) |
 | Batch | DAG `cinematch_batch_daily` |
 | Streaming | `streaming/producer.py`, `streaming/events_to_bronze.py` |
-| Data lake / lakehouse | MinIO + Delta, couches bronze / silver |
+| Data lake / lakehouse | RustFS (compatible S3) + Delta, couches bronze / silver |
 | Modélisation dimensionnelle | `dbt/models/marts/` |
 | ETL / ELT | Spark (ETL vers Silver) + dbt (ELT vers Gold) |
-| Orchestration | `airflow/dags/` |
-| Qualité des données | tests dbt, fraîcheur, seuil d'échec à l'ingestion |
+| Orchestration | `airflow/dags/cinematch_batch_daily.py` (Airflow 3.3) |
+| Qualité des données | tests dbt (dont test métier), fraîcheur, seuil d'échec à l'ingestion |
 | Incrémental | MERGE Delta, modèles dbt `incremental`, checkpoints streaming |
 | Changements de schéma | `schema.autoMerge`, `on_schema_change` |
 | Lignage | `dbt docs generate` |
-| Monitoring / logs | logs Airflow, fraîcheur dbt, (semaine 4) alertes |
+| Monitoring / logs | logs et reprises Airflow, fraîcheur dbt, (semaine 4) alertes |
 | Docker | `docker-compose.yml`, `docker/airflow/Dockerfile` |
 | Tests / CI-CD | `tests/`, `.github/workflows/ci.yml` |
-| Tableaux de bord / SQL | Metabase, `mart_movie_momentum` |
+| Tableaux de bord / SQL | `mart_hype_or_gem` ; Metabase et `mart_movie_momentum` à venir |
 | Documentation | `README.md`, `docs/` |

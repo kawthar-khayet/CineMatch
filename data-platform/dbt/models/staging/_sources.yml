@@ -18,6 +18,8 @@ sources:
         description: Rang de chaque film dans la liste tendance de TMDB, 1 ligne par jour × film.
       - name: imdb_ratings_daily
         description: Note et nombre de votes IMDb, 1 ligne par jour × film (catalogue uniquement).
+      - name: imdb_titles
+        description: Informations IMDb de chaque titre du catalogue (type de contenu, année, durée, genres).
       - name: movielens_ratings
         description: Notes MovieLens, 1 ligne par utilisateur × film.
       - name: movielens_links

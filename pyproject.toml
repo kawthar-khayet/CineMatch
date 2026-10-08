@@ -1,5 +1,23 @@
-# Configuration des outils Python du projet (les dépendances sont dans requirements.txt).
+# Description du projet Python et configuration de ses outils (les dépendances sont dans requirements.txt).
 
+# --- Comment construire / installer le projet ---
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+# --- Le projet ---
+[project]
+name = "cinematch"
+version = "0.1.0"
+description = "Plateforme de données de découverte de films (projet de fin d'études)"
+requires-python = ">=3.11"
+
+# --- Où se trouve le code : le paquet cinematch est dans data-platform/src ---
+# Installation locale, une seule fois : pip install -e .
+[tool.setuptools.packages.find]
+where = ["data-platform/src"]
+
+# --- Qualité du code ---
 [tool.ruff]
 line-length = 120
 target-version = "py311"          # même version que les images Docker (python:3.11)

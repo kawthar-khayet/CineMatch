@@ -59,6 +59,13 @@ models:
                 min_value: 1
                 max_value: 10
 
+  - name: stg_imdb__titles
+    columns:
+      - name: imdb_id
+        data_tests: [unique, not_null]
+      - name: title_type
+        data_tests: [not_null]
+
   - name: stg_movielens__ratings
     data_tests:
       - dbt_utils.unique_combination_of_columns:

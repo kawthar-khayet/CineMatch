@@ -1,6 +1,7 @@
 -- Dimension film : 1 ligne par film (tmdb_id).
 -- Elle réunit les films à fiche TMDB complète (films tendance) et les films MovieLens (titre + année seulement),
 -- pour que toutes les notes MovieLens puissent s'y rattacher. La note IMDb est la plus récente connue.
+-- IMDb apporte aussi le type de contenu (film, série, épisode…) et la durée quand TMDB ne la connaît pas.
 with tmdb_movies as (
     select * from {{ ref('stg_tmdb__movies') }}
 ),
@@ -24,6 +25,10 @@ latest_imdb as (
     order by imdb_id, snapshot_date desc
 ),
 
+imdb_titles as (
+    select * from {{ ref('stg_imdb__titles') }}
+),
+
 catalog as (
     -- full outer join : on garde les films présents d'un seul côté ou des deux
     select
@@ -35,7 +40,7 @@ catalog as (
         tmdb.original_language,
         tmdb.release_date,
         coalesce(extract(year from tmdb.release_date)::int, ml.release_year) as release_year,
-        tmdb.runtime_minutes,
+        tmdb.runtime_minutes as tmdb_runtime_minutes,
         tmdb.tmdb_vote_average,
         tmdb.tmdb_vote_count,
         tmdb.poster_path,
@@ -44,32 +49,46 @@ catalog as (
     from tmdb_movies as tmdb
     full outer join movielens_movies as ml
         on tmdb.tmdb_id = ml.tmdb_id
+),
+
+enriched as (
+    select
+        catalog.*,
+        -- la durée TMDB fait foi ; IMDb la complète quand TMDB ne la connaît pas
+        coalesce(catalog.tmdb_runtime_minutes, imdb_titles.runtime_minutes) as runtime_minutes,
+        imdb_titles.title_type as content_type,
+        imdb_titles.title_type = 'movie' as is_movie
+    from catalog
+    left join imdb_titles
+        on catalog.imdb_id = imdb_titles.imdb_id
 )
 
 select
-    catalog.tmdb_id,
-    catalog.imdb_id,
-    catalog.movielens_movie_id,
-    catalog.title,
-    catalog.original_title,
-    catalog.original_language,
-    catalog.release_date,
-    catalog.release_year,
-    catalog.runtime_minutes,
+    enriched.tmdb_id,
+    enriched.imdb_id,
+    enriched.movielens_movie_id,
+    enriched.title,
+    enriched.original_title,
+    enriched.original_language,
+    enriched.release_date,
+    enriched.release_year,
+    enriched.content_type,
+    coalesce(enriched.is_movie, false) as is_movie,
+    enriched.runtime_minutes,
     case
-        when catalog.runtime_minutes is null then 'inconnue'
-        when catalog.runtime_minutes < 90 then '< 1h30'
-        when catalog.runtime_minutes <= 120 then '1h30 - 2h'
+        when enriched.runtime_minutes is null then 'inconnue'
+        when enriched.runtime_minutes < 90 then '< 1h30'
+        when enriched.runtime_minutes <= 120 then '1h30 - 2h'
         else '> 2h'
     end as runtime_bucket,
-    catalog.tmdb_vote_average,
-    catalog.tmdb_vote_count,
+    enriched.tmdb_vote_average,
+    enriched.tmdb_vote_count,
     latest_imdb.imdb_rating,
     latest_imdb.imdb_num_votes,
     latest_imdb.imdb_rating_date,
-    catalog.poster_path,
-    catalog.is_adult,
-    catalog.has_tmdb_details
-from catalog
+    enriched.poster_path,
+    enriched.is_adult,
+    enriched.has_tmdb_details
+from enriched
 left join latest_imdb
-    on catalog.imdb_id = latest_imdb.imdb_id
+    on enriched.imdb_id = latest_imdb.imdb_id

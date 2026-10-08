@@ -165,6 +165,138 @@ historique des votes IMDb, événements utilisateurs) : seules les règles chang
 Exemple tiré des données : *Insidious* (n°2, IMDb 6,2) devant *Digger* (n°3, IMDb 7,3) → `tendance_moyenne` contre `vraie_tendance`.
 **Le rang tendance mesure l'attention, pas la qualité** : c'est la justification de l'indice.
 
+### Les résultats obtenus (données du 2026-10-05, 1 page de tendances)
+
+**Répartition par catégorie**
+
+| Catégorie | Films |
+|---|---|
+| 💎 `pepite_cachee` | 1 019 |
+| 🔥 `vraie_tendance` | 8 |
+| `tendance_moyenne` | 7 |
+| `tendance_non_notee` | 3 |
+| ⚠️ `buzz_trompeur` | 2 |
+
+**Les 20 films tendance**
+
+| Rang | Film | Catégorie | Explication générée |
+|---|---|---|---|
+| 1 | Spider-Man: Brand New Day | vraie_tendance | n°1 en tendance, et bien noté : 8/10 sur IMDb |
+| 2 | Insidious: Out of the Further | tendance_moyenne | n°2 en tendance, avec une note moyenne : 6.2/10 sur IMDb |
+| 3 | Digger | vraie_tendance | n°3 en tendance, et bien noté : 7.3/10 sur IMDb |
+| 4 | Verity | tendance_moyenne | n°4 en tendance, avec une note moyenne : 6.1/10 sur IMDb |
+| 5 | The Uprising | tendance_moyenne | n°5 en tendance, avec une note moyenne : 6.2/10 sur IMDb |
+| 6 | Resident Evil | vraie_tendance | n°6 en tendance, et bien noté : 7.6/10 sur IMDb |
+| 7 | Avengers: Doomsday | tendance_non_notee | n°7 en tendance, pas encore assez noté sur IMDb |
+| 8 | Obsession | vraie_tendance | n°8 en tendance, et bien noté : 7.8/10 sur IMDb |
+| 9 | Other Mommy | tendance_non_notee | n°9 en tendance, pas encore assez noté sur IMDb |
+| 10 | Runner | tendance_moyenne | n°10 en tendance, avec une note moyenne : 6.3/10 sur IMDb |
+| 11 | Soulm8te | **buzz_trompeur** | n°11 en tendance, mais seulement 5.8/10 sur IMDb |
+| 12 | Doing Life | tendance_moyenne | n°12 en tendance, avec une note moyenne : 6.1/10 sur IMDb |
+| 13 | Primetime | vraie_tendance | n°13 en tendance, et bien noté : 7.2/10 sur IMDb |
+| 14 | The Odyssey | vraie_tendance | n°14 en tendance, et bien noté : 8.4/10 sur IMDb |
+| 15 | Moana | **buzz_trompeur** | n°15 en tendance, mais seulement 5.8/10 sur IMDb |
+| 16 | Street Fighter | tendance_non_notee | n°16 en tendance, pas encore assez noté sur IMDb |
+| 17 | Coyote vs. Acme | vraie_tendance | n°17 en tendance, et bien noté : 7.4/10 sur IMDb |
+| 18 | Toy Story 5 | vraie_tendance | n°18 en tendance, et bien noté : 7.3/10 sur IMDb |
+| 19 | Backrooms | tendance_moyenne | n°19 en tendance, avec une note moyenne : 6.7/10 sur IMDb |
+| 20 | UNABOMBER | tendance_moyenne | n°20 en tendance, avec une note moyenne : 6.2/10 sur IMDb |
+
+À noter : *The Odyssey* (n°14, IMDb 8,4) est le **mieux noté** des films tendance, alors que 13 films sont classés devant lui.
+
+**Les 10 « pépites cachées » les mieux notées**
+
+| Titre | Année | Note IMDb | Votes |
+|---|---|---|---|
+| Day of the Doctor, The | 2013 | 9,3 | 21 225 |
+| The Godfather Trilogy: 1972-1990 | 1992 | 9,3 | 16 792 |
+| Connections | 1978 | 9,3 | 1 656 |
+| Frozen Planet | 2011 | 9,0 | 40 732 |
+| Human Planet | 2011 | 9,0 | 34 395 |
+| Civil War, The | 1990 | 9,0 | 26 647 |
+| Sherlock - A Study in Pink | 2010 | 8,9 | 37 151 |
+| O.J.: Made in America | 2016 | 8,9 | 24 212 |
+| Human Condition III, The (Ningen no joken III) | 1961 | 8,8 | 9 174 |
+| Doctor Who: The Waters of Mars | 2009 | 8,8 | 8 457 |
+
+**Autres résultats**
+
+| Requête | Résultat |
+|---|---|
+| Composition de `dim_movie` | 9 753 films : 20 avec fiche TMDB complète (17 avec note IMDb), 9 733 venant de MovieLens (9 713 avec note IMDb) |
+| Note moyenne MovieLens, semaine / week-end | 3,49 (73 169 notes) / 3,52 (27 667 notes) : **pas de différence significative** |
+
+### Ce que ces résultats apprennent (analyse critique de la version 1)
+
+1. **Trop de « pépites » : 1 019 films.** Les seuils sont trop larges : une pépite doit être **rare**.
+   → Resserrer les règles (note plus haute, ou ne garder que les meilleures d'un genre ou d'une période).
+2. **Des « pépites » qui ne sont pas des films.** Le top 10 contient des **épisodes de séries** (*Doctor Who*, *Sherlock*),
+   des **séries documentaires** (*Frozen Planet*, *Human Planet*, *The Civil War*) et une **compilation** (*Godfather Trilogy*).
+   MovieLens contient aussi des contenus télévisés, et leurs notes IMDb sont souvent plus élevées que celles des films.
+   → Il faut connaître le **type de contenu** (film, série, épisode…) : le fichier IMDb `title.basics` (colonne `titleType`)
+   ou les fiches TMDB le fournissent. C'est un vrai **problème de qualité de données**, découvert grâce à l'analyse des résultats.
+3. **Les catégories de tendance sont cohérentes** : 2 buzz trompeurs (*Soulm8te*, *Moana*, à 5,8), 3 films trop récents pour être notés
+   (dont *Avengers: Doomsday*), et *The Odyssey* repéré comme le mieux noté malgré son 14e rang.
+4. **Détail d'affichage** : une note de 8,0 s'affiche « 8/10 ». On pourra formater le nombre (`to_char`) pour toujours afficher une décimale.
+
+**Leçon** : un indicateur ne se valide pas seulement par des tests techniques (tous verts ici) : il faut **regarder les résultats**
+avec un œil métier. C'est cette analyse qui fait apparaître les vraies améliorations.
+
+### La version 1.1 : les corrections apportées
+
+| Correction | Où |
+|---|---|
+| Ingestion du fichier IMDb **`title.basics`** (~200 Mo : type de contenu, année, durée, genres) | `ingestion/imdb.py` (factorisé : une fonction `ingest_file` par fichier de la liste `DATASETS`) |
+| Nouvelle table Silver **`imdb_titles`**, filtrée sur le catalogue (`left_semi`), publiée dans Postgres | `transform/silver_imdb.py` (option `quote = ""` : certains titres contiennent des guillemets), `publish_silver.py` |
+| `dim_movie` : **`content_type`** et **`is_movie`** ; la durée IMDb complète celle de TMDB (`coalesce`) | `stg_imdb__titles.sql`, `dim_movie.sql` |
+| Pépites réservées aux **films**, seuils resserrés (note ≥ **8,0**, **5 000 à 50 000** votes) | `mart_hype_or_gem.sql`, `dbt_project.yml` |
+| Notes affichées avec une décimale (« 8.0/10 ») | `to_char(imdb_rating, 'FM90.0')` |
+| **Test singulier** `assert_gems_are_movies.sql` : la requête doit renvoyer **zéro ligne** | `data-platform/dbt/tests/` |
+
+Un **test singulier** est une requête écrite à la main qui vérifie une **règle métier** : chaque ligne renvoyée est une erreur.
+Ce test aurait détecté le défaut de la version 1 ; il empêche désormais toute régression.
+
+Au passage : `pyproject.toml` décrit maintenant le projet (paquet `cinematch` dans `data-platform/src`), installé une fois avec
+`pip install -e .` (mode éditable) → plus besoin de `PYTHONPATH` sur le PC.
+
+### Résultats : version 1 contre version 1.1
+
+| Mesure | Version 1 | Version 1.1 |
+|---|---|---|
+| Pépites cachées | 1 019 | **138** |
+| Pépites qui ne sont pas des films | Le top 10 en contenait **8** | **0** (garanti par le test) |
+| Films à durée inconnue dans `dim_movie` | ~9 733 (tous les films MovieLens) | **21** (durée IMDb en complément) |
+| Affichage de la note | « 8/10 » | « 8.0/10 » |
+| Jours de notes IMDb dans `fact_imdb_ratings_daily` | 1 | **2** (9 730 notes par jour) : l'historique des votes commence |
+
+**Le nouveau top 10 des pépites cachées** (que des films, pour la plupart des documentaires et des classiques peu connus)
+
+| Titre | Année | Note IMDb | Votes |
+|---|---|---|---|
+| O.J.: Made in America | 2016 | 8,9 | 24 215 |
+| Human Condition III, The (Ningen no joken III) | 1961 | 8,8 | 9 176 |
+| Stop Making Sense | 1984 | 8,7 | 24 603 |
+| Earthlings | 2006 | 8,6 | 20 657 |
+| Human | 2015 | 8,6 | 9 291 |
+| Dear Zachary: A Letter to a Son About His Father | 2008 | 8,5 | 46 873 |
+| Baraka | 1992 | 8,5 | 43 562 |
+| Trou, Le (Hole, The) (Night Watch, The) | 1960 | 8,5 | 24 319 |
+| Home | 2009 | 8,5 | 23 371 |
+| Human Condition I, The (Ningen no joken I) | 1959 | 8,5 | 11 783 |
+
+**Les types de contenu du catalogue** (`dim_movie`) : 9 085 films (`movie`), 170 vidéos, 168 téléfilms (`tvMovie`), 104 courts métrages,
+79 mini-séries, 79 émissions spéciales, 32 épisodes, 10 courts métrages TV, 6 séries, et **20 sans type**.
+
+**Les 20 titres sans type** sont des films MovieLens dont l'identifiant IMDb **n'existe plus** (ex. *Confessions of a Dangerous Mind*,
+`tt0290538`) : IMDb fusionne parfois des doublons et change leur identifiant, alors que MovieLens garde l'ancien.
+Ce sont les mêmes films qui n'ont pas de note IMDb. Les 20 films TMDB, eux, ont tous leur type.
+
+**Une note qui bouge** : *Verity* est passé de 6,1 à 6,0 sur IMDb entre le 5 et le 6 octobre. C'est le premier signe de l'historique
+quotidien, qui permettra la version 2 de l'indice (la progression).
+
+**Pistes restantes** : 138 pépites restent nombreuses ; on pourrait garder les meilleures par genre ou par décennie, ou les croiser
+avec les goûts de l'utilisateur (c'est le rôle de la recommandation).
+
 ## 7. Le lignage
 
 Le **lignage** (*data lineage*) est la traçabilité des données : d'où vient chaque table, par quelles transformations elle passe,

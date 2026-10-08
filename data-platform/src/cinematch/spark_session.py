@@ -18,6 +18,7 @@ def get_spark(app_name: str) -> SparkSession:
         SparkSession.builder.appName(app_name)
         .master("local[*]")
         .config("spark.driver.memory", "2g")
+        .config("spark.ui.showConsoleProgress", "false")  # pas de barre de progression : logs lisibles dans Airflow
         .config("spark.sql.session.timeZone", "UTC")
         # Delta Lake
         .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")

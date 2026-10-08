@@ -1,3 +1,49 @@
+# Configuration commune aux services Airflow (bloc réutilisé plus bas avec « <<: *airflow-common »)
+x-airflow-common-env: &airflow-common-env
+  # Exécution des tâches dans le conteneur du scheduler : pas besoin de Redis ni de workers séparés
+  AIRFLOW__CORE__EXECUTOR: LocalExecutor
+  # 4 tâches en même temps au maximum : suffisant ici, et économe en mémoire sur un portable
+  AIRFLOW__CORE__PARALLELISM: "4"
+  # Active la page de santé du scheduler (port 8974), utilisée par son healthcheck
+  AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: "true"
+  AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+  AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+  # Base de métadonnées : la base « airflow » du même Postgres (créée par init.sql)
+  AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/airflow
+  # Connexion (comptes, rôles) gérée par le module FAB, ce qui permet de créer l'administrateur au démarrage
+  AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
+  # Adresse à laquelle les tâches envoient leur état à Airflow, et clé qui signe ces échanges
+  AIRFLOW__CORE__EXECUTION_API_SERVER_URL: http://airflow-apiserver:8080/execution/
+  AIRFLOW__API_AUTH__JWT_SECRET: ${AIRFLOW_JWT_SECRET}
+  # Depuis un conteneur, les autres services se joignent par leur nom (et non localhost)
+  S3_ENDPOINT: http://object-storage:9000
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: "5432"
+  DBT_PROJECT_DIR: /opt/airflow/dbt
+  DBT_PROFILES_DIR: /opt/airflow/dbt
+
+x-airflow-common: &airflow-common
+  build:
+    context: .
+    dockerfile: data-platform/docker/airflow/Dockerfile
+  image: cinematch-airflow:latest
+  env_file: .env
+  environment: *airflow-common-env
+  user: "${AIRFLOW_UID:-50000}:0"
+  volumes:
+    - ./data-platform/airflow/dags:/opt/airflow/dags
+    - ./data-platform/src:/opt/airflow/src
+    - ./data-platform/dbt:/opt/airflow/dbt
+    - airflow-logs:/opt/airflow/logs
+    - airflow-ivy-cache:/home/airflow/.ivy2
+  depends_on:
+    object-storage:
+      condition: service_started
+    postgres:
+      condition: service_healthy
+    airflow-init:
+      condition: service_completed_successfully
+
 services:
   object-storage:
     image: rustfs/rustfs:1.0.1
@@ -54,7 +100,63 @@ services:
       postgres:
         condition: service_healthy
 
+  # --- Airflow : orchestration du pipeline (interface sur http://localhost:8080) ---
+  # 4 services : initialisation (une fois), API + interface web, scheduler, lecteur des DAGs
+  airflow-init:
+    <<: *airflow-common
+    container_name: cinematch-airflow-init
+    # Crée les tables de la base « airflow » et le compte administrateur, puis s'arrête
+    command: version
+    environment:
+      <<: *airflow-common-env
+      _AIRFLOW_DB_MIGRATE: "true"
+      _AIRFLOW_WWW_USER_CREATE: "true"
+      _AIRFLOW_WWW_USER_USERNAME: ${AIRFLOW_ADMIN_USER}
+      _AIRFLOW_WWW_USER_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  airflow-apiserver:
+    <<: *airflow-common
+    container_name: cinematch-airflow-apiserver
+    command: api-server
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/api/v2/version"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # Le scheduler lance les tâches (LocalExecutor) : c'est dans ce conteneur que Spark tourne (ADR 0002)
+  airflow-scheduler:
+    <<: *airflow-common
+    container_name: cinematch-airflow-scheduler
+    command: scheduler
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8974/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # Lit les fichiers du dossier dags/ et les enregistre dans la base (service séparé depuis Airflow 3)
+  airflow-dag-processor:
+    <<: *airflow-common
+    container_name: cinematch-airflow-dag-processor
+    command: dag-processor
+    healthcheck:
+      test: ["CMD-SHELL", 'airflow jobs check --job-type DagProcessorJob --hostname "$${HOSTNAME}"']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
 volumes:
   object-storage-data:
   postgres-data:
   spark-ivy-cache:
+  airflow-logs:
+  airflow-ivy-cache:

@@ -16,6 +16,7 @@ SILVER_TABLES = [
     "tmdb_movie_people",
     "tmdb_trending_daily",
     "imdb_ratings_daily",
+    "imdb_titles",
     "movielens_ratings",
     "movielens_links",
     "movielens_movies",

@@ -1,7 +1,8 @@
-"""Bronze → Silver pour IMDb : les notes du jour, limitées aux films qui nous intéressent.
+"""Bronze → Silver pour IMDb : les notes du jour et les informations de chaque titre, limitées à notre catalogue.
 
-Table produite :
+Tables produites :
   imdb_ratings_daily  1 ligne par jour × film (historique des notes et des votes)
+  imdb_titles         1 ligne par film (état actuel) : type de contenu, titre, année, durée, genres
 
 Prérequis : silver_tmdb et silver_movielens doivent avoir été exécutés (ils définissent les films à garder).
 Exécution : docker compose run --rm spark-jobs python -m cinematch.transform.silver_imdb --date 2026-10-05
@@ -35,6 +36,17 @@ def catalog_imdb_ids(spark: SparkSession) -> DataFrame:
     return tmdb.union(movielens).where(F.col("imdb_id").isNotNull()).distinct()
 
 
+def read_imdb_tsv(spark: SparkSession, dataset: str, ingest_date: str) -> DataFrame:
+    """Lit un fichier IMDb de Bronze. Spark décompresse lui-même le .gz ; IMDb écrit \\N pour une valeur absente."""
+    return (
+        spark.read.option("header", True)
+        .option("sep", "\t")
+        .option("nullValue", "\\N")
+        .option("quote", "")  # title.basics contient des guillemets dans certains titres : on ne les interprète pas
+        .csv(lake_path("bronze", "imdb", dataset, f"ingest_date={ingest_date}"))
+    )
+
+
 def ratings_daily(raw: DataFrame, catalog: DataFrame, ingest_date: str) -> DataFrame:
     # left_semi : garde seulement les films du catalogue
     return raw.join(catalog, raw.tconst == catalog.imdb_id, "left_semi").select(
@@ -45,24 +57,39 @@ def ratings_daily(raw: DataFrame, catalog: DataFrame, ingest_date: str) -> DataF
     )
 
 
+def titles(raw: DataFrame, catalog: DataFrame) -> DataFrame:
+    # titleType : movie, tvMovie, tvSeries, tvEpisode, short, video…
+    return raw.join(catalog, raw.tconst == catalog.imdb_id, "left_semi").select(
+        F.col("tconst").alias("imdb_id"),
+        F.col("titleType").alias("title_type"),
+        F.col("primaryTitle").alias("primary_title"),
+        F.col("startYear").cast("int").alias("start_year"),
+        F.col("runtimeMinutes").cast("int").alias("runtime_minutes"),
+        F.col("genres").alias("genres_comma_separated"),
+    )
+
+
 def run(ingest_date: str) -> None:
     spark = get_spark("silver_imdb")
     try:
-        # Spark décompresse lui-même le .gz ; IMDb écrit \N pour une valeur absente
-        raw = (
-            spark.read.option("header", True)
-            .option("sep", "\t")
-            .option("nullValue", "\\N")
-            .csv(lake_path("bronze", "imdb", "title_ratings", f"ingest_date={ingest_date}"))
-        )
-        df = ratings_daily(raw, catalog_imdb_ids(spark), ingest_date)
+        catalog = catalog_imdb_ids(spark)
 
-        path = lake_path("silver", "imdb_ratings_daily")
-        upsert_delta(spark, df, path, ["snapshot_date", "imdb_id"])
+        ratings_raw = read_imdb_tsv(spark, "title_ratings", ingest_date)
+        ratings_path = lake_path("silver", "imdb_ratings_daily")
+        upsert_delta(spark, ratings_daily(ratings_raw, catalog, ingest_date), ratings_path, ["snapshot_date", "imdb_id"])
         log.info(
             "imdb_ratings_daily : %d lignes gardées ce jour sur %d dans le fichier IMDb",
-            spark.read.format("delta").load(path).where(F.col("snapshot_date") == ingest_date).count(),
-            raw.count(),
+            spark.read.format("delta").load(ratings_path).where(F.col("snapshot_date") == ingest_date).count(),
+            ratings_raw.count(),
+        )
+
+        basics_raw = read_imdb_tsv(spark, "title_basics", ingest_date)
+        titles_path = lake_path("silver", "imdb_titles")
+        upsert_delta(spark, titles(basics_raw, catalog), titles_path, ["imdb_id"])
+        log.info(
+            "imdb_titles : %d lignes au total (%d titres dans le fichier IMDb)",
+            spark.read.format("delta").load(titles_path).count(),
+            basics_raw.count(),
         )
     finally:
         spark.stop()
