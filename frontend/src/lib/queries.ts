@@ -1,4 +1,4 @@
-// Reads the serving database (Postgres on Neon), filled every day by the Airflow task publish_serving.
+// Reads the serving database (PostgreSQL on Azure), filled every day by the Airflow task publish_serving.
 // Results are cached for an hour, and refreshed immediately when Airflow calls /api/revalidate.
 import "server-only";
 import { cacheLife, cacheTag } from "next/cache";
@@ -10,10 +10,10 @@ export const SERVING_TAG = "serving";
 
 const url = process.env.DATABASE_URL;
 if (!url) {
-  throw new Error("DATABASE_URL is not set: add the serving database URL to .env.local (or to Vercel)");
+  throw new Error("DATABASE_URL is not set: add the serving database URL to .env.local (or to the App Service settings)");
 }
 
-// prepare: false is required by Neon's connection pooler
+// prepare: false keeps the client compatible with a connection pooler (no named prepared statements)
 const sql = postgres(url, { prepare: false, max: 3 });
 
 type MovieRow = Omit<Movie, "cast"> & { cast_members: string[] | null };

@@ -173,7 +173,7 @@ instantanément, sans aller-retour avec un serveur. Le calcul lourd (similarité
 
 Environ **13 $ par mois** (App Service B1), pris sur le crédit Azure for Students (100 $, valable jusqu'au 10/10/2027).
 PostgreSQL B1ms fait partie des services gratuits 12 mois ; **à confirmer** sur la page Education du portail
-(si la base est facturée : ~16 $ de plus par mois, et on la déplacerait sur Neon).
+(si la base est facturée : ~16 $ de plus par mois).
 
 ## 7. Les problèmes rencontrés
 

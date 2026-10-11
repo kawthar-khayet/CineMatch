@@ -83,7 +83,7 @@ with DAG(
         bash_command="dbt build",
     )
 
-    # --- 5. Couche de service : Gold → Postgres hébergé (Neon), lu par le site web, qui est ensuite prévenu ---
+    # --- 5. Couche de service : Gold → PostgreSQL sur Azure, lu par le site web, qui est ensuite prévenu ---
     publish_serving = BashOperator(
         task_id="publish_serving",
         bash_command="python -m cinematch.serving.publish",
