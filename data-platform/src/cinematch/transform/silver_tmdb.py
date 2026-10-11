@@ -16,6 +16,7 @@ from datetime import UTC, datetime
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 
+from cinematch import lake
 from cinematch.spark_session import get_spark, lake_path
 from cinematch.transform.delta_io import upsert_delta
 
@@ -112,7 +113,12 @@ def run(ingest_date: str) -> None:
     spark = get_spark("silver_tmdb")
     try:
         partition = f"ingest_date={ingest_date}"
-        details = spark.read.json(lake_path("bronze", "tmdb", "movie_details", partition))
+        # Fiches des films tendance + fiches du catalogue MovieLens (tmdb_catalog), s'il y en a ce jour-là.
+        # Lues ensemble : Spark déduit un seul schéma pour les deux, qui ont le même format.
+        detail_paths = [lake_path("bronze", "tmdb", "movie_details", partition)]
+        if lake.has_prefix(f"bronze/tmdb/catalog_details/{partition}/"):
+            detail_paths.append(lake_path("bronze", "tmdb", "catalog_details", partition))
+        details = spark.read.json(detail_paths)
         pages = spark.read.json(lake_path("bronze", "tmdb", "trending", partition))
 
         tables = {

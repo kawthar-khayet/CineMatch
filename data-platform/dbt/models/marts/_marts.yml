@@ -180,3 +180,26 @@ models:
               arguments:
                 to: ref('dim_date')
                 field: date_key
+
+  - name: mart_movie_features
+    description: >
+      Caractéristiques des films recommandables (fiche TMDB complète, assez connus) : genres, réalisateurs,
+      5 acteurs principaux, durée, notes IMDb et popularité MovieLens. 1 ligne par film.
+      Base de la recommandation par le contenu (cinematch.recommendation).
+    columns:
+      - name: tmdb_id
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_movie')
+                field: tmdb_id
+      - name: genres
+        data_tests: [not_null]
+      - name: movielens_num_ratings
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0

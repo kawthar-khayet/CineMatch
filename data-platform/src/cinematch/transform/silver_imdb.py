@@ -76,7 +76,9 @@ def run(ingest_date: str) -> None:
 
         ratings_raw = read_imdb_tsv(spark, "title_ratings", ingest_date)
         ratings_path = lake_path("silver", "imdb_ratings_daily")
-        upsert_delta(spark, ratings_daily(ratings_raw, catalog, ingest_date), ratings_path, ["snapshot_date", "imdb_id"])
+        upsert_delta(
+            spark, ratings_daily(ratings_raw, catalog, ingest_date), ratings_path, ["snapshot_date", "imdb_id"]
+        )
         log.info(
             "imdb_ratings_daily : %d lignes gardées ce jour sur %d dans le fichier IMDb",
             spark.read.format("delta").load(ratings_path).where(F.col("snapshot_date") == ingest_date).count(),

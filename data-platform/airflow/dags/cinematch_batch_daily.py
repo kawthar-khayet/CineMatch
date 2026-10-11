@@ -1,4 +1,4 @@
-"""DAG quotidien de CineMatch : sources → Bronze → Silver → Postgres → Gold (dbt).
+"""DAG quotidien de CineMatch : sources → Bronze → Silver → Postgres → Gold (dbt) → base de service → site web.
 
 Chaque tâche lance un module Python dans son propre processus (python -m ...), comme à la main :
 Spark démarre et s'arrête avec la tâche, ce qui libère sa mémoire (ADR 0002).
@@ -42,6 +42,13 @@ with DAG(
         bash_command="python -m cinematch.ingestion.movielens",
     )
 
+    # Fiches TMDB (acteurs, réalisateurs, durée) des films MovieLens assez notés : base de la recommandation.
+    # Incrémental : seules les fiches manquantes sont demandées (le premier passage en récupère ~2 300).
+    ingest_tmdb_catalog = BashOperator(
+        task_id="ingest_tmdb_catalog",
+        bash_command="python -m cinematch.ingestion.tmdb_catalog --date {{ ds }}",
+    )
+
     # --- 2. Bronze → Silver (Spark : une tâche à la fois, pour ne pas saturer la mémoire) ---
     silver_tmdb = BashOperator(
         task_id="silver_tmdb",
@@ -65,9 +72,10 @@ with DAG(
 
     # --- 4. Gold avec dbt (DBT_PROJECT_DIR et DBT_PROFILES_DIR viennent de docker-compose.yml) ---
     # Fraîcheur des sources : avertit si les données ont plus de 2 jours (voir _sources.yml)
+    # dbt deps d'abord : installe dbt_utils s'il manque (dossier dbt_packages ignoré par Git), rapide sinon
     dbt_source_freshness = BashOperator(
         task_id="dbt_source_freshness",
-        bash_command="dbt source freshness",
+        bash_command="dbt deps && dbt source freshness",
     )
     # Construit les modèles et lance les tests, dans l'ordre du lignage
     dbt_build = BashOperator(
@@ -75,7 +83,14 @@ with DAG(
         bash_command="dbt build",
     )
 
+    # --- 5. Couche de service : Gold → Postgres hébergé (Neon), lu par le site web, qui est ensuite prévenu ---
+    publish_serving = BashOperator(
+        task_id="publish_serving",
+        bash_command="python -m cinematch.serving.publish",
+    )
+
     # --- Ordre d'exécution ---
-    [ingest_tmdb, ingest_imdb, ingest_movielens] >> silver_tmdb
+    ingest_movielens >> ingest_tmdb_catalog
+    [ingest_tmdb, ingest_imdb, ingest_tmdb_catalog] >> silver_tmdb
     silver_tmdb >> silver_movielens >> silver_imdb >> publish_silver
-    publish_silver >> dbt_source_freshness >> dbt_build
+    publish_silver >> dbt_source_freshness >> dbt_build >> publish_serving

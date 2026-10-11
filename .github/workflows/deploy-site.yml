@@ -1,0 +1,55 @@
+# Déploiement du site web (frontend/) sur Azure App Service, à chaque push sur main qui touche au site.
+# Réglages à créer une fois dans GitHub (Settings → Secrets and variables → Actions) :
+#   variable AZURE_WEBAPP_NAME             nom de l'App Service
+#   secret   AZURE_WEBAPP_PUBLISH_PROFILE  profil de publication téléchargé depuis le portail Azure
+#   secret   SERVING_DATABASE_URL          base de service (lue pendant le build pour pré-générer les pages)
+name: Déploiement du site
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/deploy-site.yml"
+  workflow_dispatch:        # lancement manuel possible depuis l'onglet Actions
+
+permissions:
+  contents: read
+
+concurrency:                # un seul déploiement à la fois ; le plus récent l'emporte
+  group: deploy-site
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Build et déploiement
+    runs-on: ubuntu-latest
+    # Tant que les réglages GitHub ne sont pas créés, le déploiement se fait depuis le PC (infra/azure/03-deploy-site.ps1)
+    if: ${{ vars.AZURE_WEBAPP_NAME != '' }}
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"            # même version que l'App Service (Node 24 LTS)
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - name: Build autonome (serveur node server.js, sans node_modules à installer sur Azure)
+        run: npm run build
+        env:
+          BUILD_STANDALONE: "1"
+          DATABASE_URL: ${{ secrets.SERVING_DATABASE_URL }}
+      - name: Assembler le paquet (le serveur autonome ne contient ni les fichiers statiques ni public/)
+        run: |
+          cp -r .next/static .next/standalone/.next/static
+          if [ -d public ]; then cp -r public .next/standalone/public; fi
+          cd .next/standalone && zip -qr ../../site.zip .
+      - uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ vars.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: frontend/site.zip

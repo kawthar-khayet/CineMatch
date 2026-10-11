@@ -61,11 +61,12 @@ select
     content_type,
     category,
     case category
-        when 'vraie_tendance' then 'n°' || trending_rank || ' en tendance, et bien noté : ' || imdb_rating_text || '/10 sur IMDb'
-        when 'buzz_trompeur' then 'n°' || trending_rank || ' en tendance, mais seulement ' || imdb_rating_text || '/10 sur IMDb'
-        when 'tendance_moyenne' then 'n°' || trending_rank || ' en tendance, avec une note moyenne : ' || imdb_rating_text || '/10 sur IMDb'
-        when 'tendance_non_notee' then 'n°' || trending_rank || ' en tendance, pas encore assez noté sur IMDb'
-        when 'pepite_cachee' then imdb_rating_text || '/10 sur IMDb, mais seulement ' || imdb_num_votes || ' votes : peu connu'
+        -- Explications en anglais : c'est la langue du site
+        when 'vraie_tendance' then '#' || trending_rank || ' trending, and well rated: ' || imdb_rating_text || '/10 on IMDb'
+        when 'buzz_trompeur' then '#' || trending_rank || ' trending, but only ' || imdb_rating_text || '/10 on IMDb'
+        when 'tendance_moyenne' then '#' || trending_rank || ' trending, with an average rating: ' || imdb_rating_text || '/10 on IMDb'
+        when 'tendance_non_notee' then '#' || trending_rank || ' trending, not rated enough on IMDb yet'
+        when 'pepite_cachee' then imdb_rating_text || '/10 on IMDb, but only ' || to_char(imdb_num_votes, 'FM999,999') || ' votes: little known'
     end as explanation,
     imdb_rating,
     imdb_num_votes,

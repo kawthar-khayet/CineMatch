@@ -22,7 +22,7 @@ flowchart LR
         K["Kafka<br/>topic user_events"]
     end
 
-    subgraph L["③ Data Lake — MinIO"]
+    subgraph L["③ Data Lake — RustFS (S3)"]
         B[("Bronze<br/>brut")]
     end
 
@@ -93,8 +93,8 @@ Le tout est **orchestré par Airflow**, **conteneurisé avec Docker Compose** et
 
 | Couche | Stockage | Format | Contenu | Produite par |
 |---|---|---|---|---|
-| **Bronze** | MinIO (S3) | JSON / CSV / Delta | Données brutes, identiques à la source | Ingestion |
-| **Silver** | MinIO (S3) | **Delta Lake** | Données aplaties, typées, dédoublonnées | Spark |
+| **Bronze** | RustFS (S3) | JSON / CSV / Delta | Données brutes, identiques à la source | Ingestion |
+| **Silver** | RustFS (S3) | **Delta Lake** | Données aplaties, typées, dédoublonnées | Spark |
 | **Gold** | PostgreSQL | Tables relationnelles | Modèle dimensionnel, historique, métriques | dbt |
 
 ### Organisation du data lake
@@ -247,10 +247,13 @@ build_features → generate_candidates → score_and_explain
 
 | Service | Rôle | Port | Profil |
 |---|---|---|---|
-| `postgres` | Entrepôt + métadonnées Airflow | 5433 | socle |
-| `minio` | Data lake S3 | 9000 / 9001 (console) | socle |
-| `airflow-webserver` | Interface Airflow | 8080 | socle |
-| `airflow-scheduler` | Exécution des tâches (Spark en mode local) | — | socle |
+| `postgres` | Entrepôt (base `cinematch`) + métadonnées Airflow (base `airflow`) | 5433 | socle |
+| `object-storage` | Data lake S3 (RustFS) | 9000 / 9001 (console) | socle |
+| `airflow-init` | Création de la base Airflow et du compte admin, puis arrêt | — | socle |
+| `airflow-apiserver` | Interface et API Airflow | 8080 | socle |
+| `airflow-scheduler` | Planification et exécution des tâches (Spark en mode local) | — | socle |
+| `airflow-dag-processor` | Lecture des fichiers de DAG | — | socle |
+| `spark-jobs` | Lancement manuel d'un traitement Spark (débogage) | — | `jobs` |
 | `kafka` | Broker de messages (KRaft, sans Zookeeper) | 29092 | `streaming` |
 | `event-producer` | Générateur d'événements | — | `streaming` |
 | `metabase` | Tableaux de bord | 3000 | `bi` |
@@ -302,7 +305,7 @@ cinematch/
 | Besoin | Choix | Justification |
 |---|---|---|
 | Orchestration | Apache Airflow | Standard du marché, très demandé en stage |
-| Data lake | MinIO | Compatible S3, donc le même code tourne sur AWS |
+| Data lake | RustFS | Compatible S3, donc le même code tourne sur AWS ; remplace MinIO, dont l'image a été retirée de Docker Hub |
 | Format de table | Delta Lake | MERGE, transactions ACID, évolution de schéma, historique (*time travel*) |
 | Traitement | Apache Spark | Batch et streaming avec le même moteur |
 | Messagerie | Apache Kafka | Référence du streaming |
@@ -323,7 +326,7 @@ Les décisions détaillées sont dans [docs/adr/](docs/adr/) ; le planning est d
 | Ingestion de 2 à 3 sources | 4 sources (§2) |
 | Traitement batch | DAG quotidien (§8) |
 | Traitement temps réel / streaming | Kafka + Spark Streaming (§3) |
-| Data lake / lakehouse | MinIO + Delta, Bronze / Silver (§4) |
+| Data lake / lakehouse | RustFS + Delta, Bronze / Silver (§4) |
 | Modélisation dimensionnelle | Étoile + SCD2 (§6) |
 | ETL / ELT | Spark (ETL) + dbt (ELT) (§5) |
 | Orchestration | Airflow (§8) |
@@ -406,7 +409,7 @@ Pour que le portage prenne quelques heures et pas une réécriture complète, le
 | Partie | Rôle | Local | Databricks |
 |---|---|---|---|
 | **Logique** (« DataFrame en entrée → DataFrame en sortie ») | Aplatir, typer, dédoublonner | Identique | **Identique (même code)** |
-| **Lecture / écriture** | Où se trouvent les données | `s3a://lakehouse/...` (MinIO) | Tables et volumes Unity Catalog |
+| **Lecture / écriture** | Où se trouvent les données | `s3a://lakehouse/...` (RustFS) | Tables et volumes Unity Catalog |
 
 Seule la seconde partie change : c'est elle qui rend le portage rapide.
 
@@ -414,7 +417,7 @@ Seule la seconde partie change : c'est elle qui rend le portage rapide.
 
 | Rôle | Local (référence) | Databricks Free Edition |
 |---|---|---|
-| Stockage brut (Bronze) | MinIO, bucket `lakehouse` | **Volume** Unity Catalog `cinematch.bronze.raw` |
+| Stockage brut (Bronze) | RustFS, bucket `lakehouse` | **Volume** Unity Catalog `cinematch.bronze.raw` |
 | Format des tables | Delta Lake | Delta Lake (natif) |
 | Calcul | Spark local dans Docker | Calcul **serverless** |
 | Organisation | Dossiers `bronze/`, `silver/` | **Catalogue** `cinematch` → schémas `bronze`, `silver`, `gold` |
@@ -429,7 +432,7 @@ Seule la seconde partie change : c'est elle qui rend le portage rapide.
 
 ```mermaid
 flowchart LR
-    M[("MinIO local<br/>Bronze")] -->|upload_bronze.sh<br/>Databricks CLI| V[("Volume UC<br/>cinematch.bronze.raw")]
+    M[("RustFS local<br/>Bronze")] -->|upload_bronze.sh<br/>Databricks CLI| V[("Volume UC<br/>cinematch.bronze.raw")]
     V --> N1["01_bronze_to_silver<br/>(même logique Spark)"]
     N1 --> S[("cinematch.silver.*<br/>Delta")]
     S --> N2["02_silver_to_gold<br/>(SQL)"]
@@ -449,7 +452,7 @@ flowchart LR
 | `notebooks/01_bronze_to_silver.py` | Bronze → Silver avec les fonctions de `src/cinematch/transform/` |
 | `notebooks/02_silver_to_gold.sql` | Gold : `dim_movie`, `bridge_movie_person`, `fact_ratings`, `mart_movie_momentum` |
 | `notebooks/03_quality_checks.sql` | Unicité, non-nullité, plages de valeurs : le job échoue si un contrôle échoue |
-| `scripts/upload_bronze.sh` | Copie d'un instantané de Bronze depuis MinIO vers le volume |
+| `scripts/upload_bronze.sh` | Copie d'un instantané de Bronze depuis RustFS vers le volume |
 
 ### Ce qui reste local, et pourquoi
 

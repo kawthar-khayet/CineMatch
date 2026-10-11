@@ -17,3 +17,9 @@ data-platform/dbt/dbt_packages/
 data-platform/dbt/logs/
 /logs/
 data-platform/dbt/.user.yml
+
+# Paquet du site construit par infra/azure/03-deploy-site.ps1
+infra/azure/.build/
+
+# Réglages locaux de l'assistant de code
+.claude/
