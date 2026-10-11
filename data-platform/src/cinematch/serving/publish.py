@@ -1,6 +1,7 @@
 """Publication de la couche de service : Gold → base de service (PostgreSQL sur Azure) → site web.
 
-Le site (Azure App Service) ne lit pas l'entrepôt local : il lit cette base de service, qui ne contient que ce qu'il affiche.
+Le site (Azure App Service) ne lit pas l'entrepôt local : il lit cette base de service, qui ne contient que ce
+qu'il affiche.
 Étapes : préparer les données (site_data.build), les écrire en une transaction, puis prévenir le site
 pour qu'il rafraîchisse son cache tout de suite (sinon il le fait de lui-même, au plus tard une heure après).
 
