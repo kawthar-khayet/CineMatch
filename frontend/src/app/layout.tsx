@@ -15,11 +15,11 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Moviora — Hype or Hidden Gem?",
-    template: "%s · Moviora",
+    default: "CineMatch — Hype or Hidden Gem?",
+    template: "%s · CineMatch",
   },
   description:
-    "Is a movie's hype deserved? Moviora crosses daily trends with IMDb ratings, and recommends movies matched to your tastes, alone or as a group.",
+    "Is a movie's hype deserved? CineMatch crosses daily trends with IMDb ratings, and recommends movies matched to your tastes, alone or as a group.",
 };
 
 // short: label on small screens (the logo already links to the home page)
@@ -38,7 +38,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight">
               <span className="text-xl">🎬</span>
               <span>
-                Movi<span className="text-amber-400">ora</span>
+                Cine<span className="text-amber-400">Match</span>
               </span>
             </Link>
             <div className="flex items-center gap-1 text-sm sm:gap-2">
@@ -63,7 +63,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <footer className="border-t border-border">
           <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-8 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
             <p>
-              © 2026 <span className="text-foreground">Moviora</span> — know what is worth
+              © 2026 <span className="text-foreground">CineMatch</span> — know what is worth
               watching tonight.
             </p>
             <p className="text-xs">

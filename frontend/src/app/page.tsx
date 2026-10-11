@@ -46,7 +46,7 @@ export default async function Home() {
           </h1>
           <p className="mt-6 max-w-2xl text-lg text-muted">
             Streaming platforms recommend what is already popular, without telling you whether the hype is deserved.
-            Every day, Moviora crosses <strong className="text-foreground">TMDB trends</strong> with{" "}
+            Every day, CineMatch crosses <strong className="text-foreground">TMDB trends</strong> with{" "}
             <strong className="text-foreground">IMDb ratings</strong> to tell you, movie by movie, with an explanation.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
