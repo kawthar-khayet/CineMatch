@@ -48,6 +48,8 @@ services:
   object-storage:
     image: rustfs/rustfs:1.0.1
     container_name: cinematch-object-storage
+    # Redémarre avec Docker Desktop (après une mise en veille ou un redémarrage du PC), sauf arrêt manuel
+    restart: unless-stopped
     environment:
       RUSTFS_ACCESS_KEY: ${S3_ACCESS_KEY}
       RUSTFS_SECRET_KEY: ${S3_SECRET_KEY}
@@ -64,6 +66,7 @@ services:
   postgres:
     image: postgres:16
     container_name: cinematch-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -120,6 +123,7 @@ services:
   airflow-apiserver:
     <<: *airflow-common
     container_name: cinematch-airflow-apiserver
+    restart: unless-stopped
     command: api-server
     ports:
       - "8080:8080"
@@ -134,6 +138,7 @@ services:
   airflow-scheduler:
     <<: *airflow-common
     container_name: cinematch-airflow-scheduler
+    restart: unless-stopped
     command: scheduler
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8974/health"]
@@ -146,6 +151,7 @@ services:
   airflow-dag-processor:
     <<: *airflow-common
     container_name: cinematch-airflow-dag-processor
+    restart: unless-stopped
     command: dag-processor
     healthcheck:
       test: ["CMD-SHELL", 'airflow jobs check --job-type DagProcessorJob --hostname "$${HOSTNAME}"']
