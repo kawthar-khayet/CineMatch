@@ -29,7 +29,6 @@ architecture médaillon (**Spark, Delta Lake, dbt**) orchestrée par **Airflow**
 - **Le buzz de ce film est-il mérité ?** L'indice « Hype ou Pépite » croise les tendances du jour et les notes IMDb.
 - **Que regarder ce soir ?** Un moteur de recommandation hybride et explicable, pour une personne ou pour un groupe.
 
-> 🎓 Projet de fin d'études (PFE) en ingénierie des données, réalisé par **Kawthar Khayet**.
 
 ## Sommaire
 
