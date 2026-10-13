@@ -8,16 +8,22 @@ Ces données sont publiées dans la base de service par cinematch.serving.publis
 
 import logging
 import re
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 import psycopg2
 import psycopg2.extras
+import requests
 
 from cinematch.ingestion.tmdb import _get
 from cinematch.recommendation.collaborative import item_neighbors
 from cinematch.warehouse import connect_warehouse
 
 log = logging.getLogger(__name__)
+
+TMDB_ATTEMPTS = 3  # essais par fiche TMDB avant d'abandonner
+TMDB_RETRY_DELAY = 2  # secondes avant le 2e essai (le double avant le 3e)
+MAX_MISSING_RATE = 0.05  # au-delà de 5 % de fiches manquantes, la publication échoue
 
 MOVIES_QUERY = """
     select tmdb_id, title, release_year, runtime_bucket, category, explanation,
@@ -80,11 +86,17 @@ def display_title(english: str, original: str | None, original_language: str | N
 
 def fetch_tmdb_en(tmdb_id: int) -> dict:
     """Fiche TMDB en anglais, réduite à ce que le site affiche. Renvoie {} si le film est introuvable."""
-    try:
-        data = _get(f"/movie/{tmdb_id}", {"append_to_response": "credits", "language": "en-US"})
-    except Exception as error:  # un film retiré de TMDB ne doit pas bloquer l'export
-        log.warning("Fiche TMDB %s indisponible : %s", tmdb_id, error)
-        return {}
+    for attempt in range(1, TMDB_ATTEMPTS + 1):
+        try:
+            data = _get(f"/movie/{tmdb_id}", {"append_to_response": "credits", "language": "en-US"})
+            break
+        except Exception as error:  # un film retiré de TMDB ne doit pas bloquer l'export
+            # Un film introuvable (404) le restera : inutile de réessayer. Une coupure réseau est souvent passagère.
+            not_found = isinstance(error, requests.HTTPError) and error.response.status_code == 404
+            if not_found or attempt == TMDB_ATTEMPTS:
+                log.warning("Fiche TMDB %s indisponible : %s", tmdb_id, error)
+                return {}
+            time.sleep(TMDB_RETRY_DELAY * attempt)
     crew = data.get("credits", {}).get("crew", [])
     cast = data.get("credits", {}).get("cast", [])
     return {
@@ -114,6 +126,12 @@ def build() -> tuple[list[dict], dict]:
     # 8 requêtes TMDB en parallèle : ~230 films en une vingtaine de secondes
     with ThreadPoolExecutor(max_workers=8) as pool:
         details = list(pool.map(fetch_tmdb_en, [movie["tmdb_id"] for movie in movies]))
+
+    # Contrôle qualité : si TMDB est injoignable, on arrête plutôt que de remplacer le site par des fiches vides
+    missing = sum(1 for detail in details if not detail)
+    if movies and missing / len(movies) > MAX_MISSING_RATE:
+        raise RuntimeError(f"Trop de fiches TMDB manquantes : {missing}/{len(movies)} films, rien n'est publié")
+
     for movie, detail in zip(movies, details, strict=True):
         movie.update(detail)
         movie["display_title"] = display_title(
