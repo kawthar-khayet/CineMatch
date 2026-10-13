@@ -13,7 +13,7 @@ clean-targets: [target, dbt_packages]
 # Seuils de l'indice « Hype ou Pépite » (version 1) : modifiables ici, sans toucher au SQL.
 # Exemple pour les tester autrement : dbt build --vars '{"gem_min_rating": 8}'
 vars:
-  trending_min_votes: 1000        # tendance + moins de 1 000 votes : note pas fiable → non notée
+  trending_min_votes: 500         # tendance + moins de 500 votes : note pas fiable → non notée
   true_trend_min_rating: 7.0      # tendance + note IMDb ≥ 7    → vraie tendance
   misleading_max_rating: 6.0      # tendance + note IMDb < 6    → buzz trompeur
   gem_min_rating: 8.0             # hors tendance, un FILM (pas une série) noté ≥ 8…
