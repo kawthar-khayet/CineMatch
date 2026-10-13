@@ -68,7 +68,7 @@ export function RadarExplorer({ movies, counts }: { movies: Movie[]; counts: Rec
         </button>
         {CATEGORY_ORDER.map((key) => (
           <button key={key} type="button" className={chip(category === key)} onClick={() => setCategory(key)}>
-            {CATEGORIES[key].emoji} {CATEGORIES[key].label} ({counts[key] ?? 0})
+            {CATEGORIES[key].label} ({counts[key] ?? 0})
           </button>
         ))}
       </div>

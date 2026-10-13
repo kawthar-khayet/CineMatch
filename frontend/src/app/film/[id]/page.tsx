@@ -39,6 +39,14 @@ export default async function FilmPage(props: PageProps<"/film/[id]">) {
     .filter((other) => other.tmdb_id !== movie.tmdb_id && other.poster_path)
     .slice(0, 12);
 
+  // Tastes handed to the recommender: the movie, plus its genres and directors in case the catalog does not have it
+  const moreLikeThis = new URLSearchParams({
+    like: String(movie.tmdb_id),
+    title: movie.title,
+    genres: (movie.genres ?? []).join("|"),
+    directors: (movie.directors ?? []).join("|"),
+  });
+
   const facts = [
     { label: "IMDb rating", value: movie.imdb_rating != null ? `${movie.imdb_rating.toFixed(1)} / 10` : "Not rated yet" },
     { label: "IMDb votes", value: formatNumber(movie.imdb_num_votes) },
@@ -103,14 +111,22 @@ export default async function FilmPage(props: PageProps<"/film/[id]">) {
               )}
             </div>
 
-            <a
-              href={`https://www.themoviedb.org/movie/${movie.tmdb_id}`}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-6 inline-block text-sm text-amber-400 hover:text-amber-300"
-            >
-              View on TMDB ↗
-            </a>
+            <div className="mt-6 flex flex-wrap items-center gap-4">
+              <Link
+                href={`/recommend?${moreLikeThis}`}
+                className="rounded-lg bg-amber-400 px-4 py-2 text-sm font-semibold text-black transition hover:bg-amber-300"
+              >
+                More like this
+              </Link>
+              <a
+                href={`https://www.themoviedb.org/movie/${movie.tmdb_id}`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-sm text-amber-400 hover:text-amber-300"
+              >
+                View on TMDB ↗
+              </a>
+            </div>
           </div>
         </div>
       </section>
@@ -118,7 +134,7 @@ export default async function FilmPage(props: PageProps<"/film/[id]">) {
       {similar.length > 0 && (
         <section className="mx-auto max-w-6xl px-4 py-10">
           <h2 className="mb-4 text-xl font-bold">
-            More {meta.emoji} {meta.label}
+            More {meta.label}
           </h2>
           <MovieRow movies={similar} />
         </section>

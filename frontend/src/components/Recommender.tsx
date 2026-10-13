@@ -1,12 +1,14 @@
 "use client";
 /* eslint-disable @next/next/no-img-element -- posters served already resized by the TMDB CDN */
 
+import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { posterUrl } from "@/lib/data";
 import {
   ALL_GENRES,
   buildPeopleIndex,
   emptyMember,
+  hasTastes,
   recommend,
   searchCatalog,
   searchPeople,
@@ -51,11 +53,13 @@ function TasteSearch({
   catalog,
   people,
   member,
+  large,
   onChange,
 }: {
   catalog: RecoMovie[];
   people: Person[];
   member: Member;
+  large: boolean;
   onChange: (member: Member) => void;
 }) {
   const [query, setQuery] = useState("");
@@ -73,10 +77,12 @@ function TasteSearch({
         value={query}
         onChange={(event) => setQuery(event.target.value)}
         placeholder="A movie, director or actor you love…"
-        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none placeholder:text-muted focus:border-amber-400"
+        className={`w-full rounded-lg border border-border bg-surface outline-none placeholder:text-muted focus:border-amber-400 ${
+          large ? "px-5 py-4 text-lg" : "px-3 py-2 text-sm"
+        }`}
       />
       {movies.length + persons.length > 0 && (
-        <ul className="absolute z-20 mt-1 max-h-80 w-full overflow-y-auto rounded-lg border border-border bg-surface shadow-xl">
+        <ul className="absolute z-20 mt-1 max-h-80 w-full overflow-y-auto rounded-lg border border-border bg-surface text-left shadow-xl">
           {movies.map((movie) => (
             <li key={`movie-${movie.id}`}>
               <button
@@ -139,7 +145,6 @@ function TasteChip({
     <span
       className={`inline-flex items-center gap-1 rounded-full bg-background px-3 py-1 text-xs ring-1 ${TASTE_STYLES[kind].ring}`}
     >
-      <span aria-hidden>{TASTE_STYLES[kind].icon}</span>
       {label}
       <button type="button" onClick={onRemove} className="text-muted hover:text-foreground" aria-label={`Remove ${label}`}>
         ✕
@@ -155,12 +160,14 @@ function MemberCard({
   people,
   genres,
   byId,
+  solo,
   canRemove,
   onChange,
   onRemove,
 }: {
   member: Member;
   index: number;
+  solo: boolean;
   catalog: RecoMovie[];
   people: Person[];
   genres: string[];
@@ -171,26 +178,30 @@ function MemberCard({
 }) {
   const [showGenres, setShowGenres] = useState(false);
   const without = (list: string[], value: string) => list.filter((item) => item !== value);
-  const isEmpty = member.likes.length + member.directors.length + member.actors.length + member.genres.length === 0;
+  const isEmpty = !hasTastes(member);
+  const centered = solo ? "justify-center" : "";
   return (
-    <div className="rounded-xl border border-border bg-surface p-4">
-      <div className="mb-3 flex items-center gap-2">
-        <span className={`h-3 w-3 shrink-0 rounded-full ${MEMBER_COLORS[index % MEMBER_COLORS.length]}`} />
-        <input
-          value={member.name}
-          onChange={(event) => onChange({ ...member, name: event.target.value })}
-          aria-label="Member name"
-          className="w-full bg-transparent font-semibold outline-none"
-        />
-        {canRemove && (
-          <button type="button" onClick={onRemove} className="text-sm text-muted hover:text-red-300" aria-label="Remove">
-            ✕
-          </button>
-        )}
-      </div>
-      <TasteSearch catalog={catalog} people={people} member={member} onChange={onChange} />
+    <div className={solo ? "" : "py-5"}>
+      {/* Alone, there is nobody to tell apart: no name, just one large search box */}
+      {!solo && (
+        <div className="mb-3 flex items-center gap-2">
+          <span className={`h-3 w-3 shrink-0 rounded-full ${MEMBER_COLORS[index % MEMBER_COLORS.length]}`} />
+          <input
+            value={member.name}
+            onChange={(event) => onChange({ ...member, name: event.target.value })}
+            aria-label="Member name"
+            className="w-full bg-transparent font-semibold outline-none"
+          />
+          {canRemove && (
+            <button type="button" onClick={onRemove} className="text-sm text-muted hover:text-red-300" aria-label="Remove">
+              ✕
+            </button>
+          )}
+        </div>
+      )}
+      <TasteSearch catalog={catalog} people={people} member={member} large={solo} onChange={onChange} />
 
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className={`mt-3 flex flex-wrap gap-2 ${centered}`}>
         {member.likes.map((id) => (
           <TasteChip
             key={`m${id}`}
@@ -223,18 +234,19 @@ function MemberCard({
             onRemove={() => onChange({ ...member, genres: without(member.genres, genre) })}
           />
         ))}
-        {isEmpty && <span className="text-xs text-muted">Add movies, directors, actors or genres you love.</span>}
+        {isEmpty && !solo && (
+          <span className="text-xs text-muted">Add movies, directors, actors or genres they love.</span>
+        )}
+        <button
+          type="button"
+          onClick={() => setShowGenres(!showGenres)}
+          className="px-1 py-1 text-xs text-amber-400 hover:text-amber-300"
+        >
+          {showGenres ? "Hide genres" : "+ Favorite genres"}
+        </button>
       </div>
-
-      <button
-        type="button"
-        onClick={() => setShowGenres(!showGenres)}
-        className="mt-3 text-xs text-amber-400 hover:text-amber-300"
-      >
-        {showGenres ? "Hide genres" : "+ Favorite genres"}
-      </button>
       {showGenres && (
-        <div className="mt-2 flex flex-wrap gap-1.5">
+        <div className={`mt-2 flex flex-wrap gap-1.5 ${centered}`}>
           {genres.map((genre) => {
             const active = member.genres.includes(genre);
             return (
@@ -258,19 +270,50 @@ function MemberCard({
   );
 }
 
+// Tastes sent by a movie page ("More like this"): the movie itself when the catalog has it,
+// otherwise its genres and directors (recent trending movies are not in the catalog yet)
+function tastesFromUrl(params: URLSearchParams, catalog: RecoMovie[]): { member: Member; note: string } | null {
+  const like = Number(params.get("like"));
+  if (!like) return null;
+  const member = emptyMember("Me");
+  const title = params.get("title") ?? "this movie";
+  if (catalog.some((movie) => movie.id === like)) {
+    return { member: { ...member, likes: [like] }, note: `Based on ${title}.` };
+  }
+  const list = (key: string) => params.get(key)?.split("|").filter(Boolean) ?? [];
+  const genres = list("genres").filter((genre) => catalog.some((movie) => movie.genres.includes(genre)));
+  const directors = list("directors").filter((name) => catalog.some((movie) => movie.directors.includes(name)));
+  if (genres.length + directors.length === 0) return null;
+  const basis = [genres.length > 0 ? "genres" : null, directors.length > 0 ? "director" : null].filter(Boolean);
+  return {
+    member: { ...member, genres, directors },
+    note: `${title} is too recent to be in our catalog, so these picks are based on its ${basis.join(" and ")}.`,
+  };
+}
+
 export function Recommender() {
+  const params = useSearchParams();
   const [catalog, setCatalog] = useState<RecoMovie[] | null>(null);
   const [error, setError] = useState(false);
   const [mode, setMode] = useState<"solo" | "group">("solo");
   const [members, setMembers] = useState<Member[]>([emptyMember("Me")]);
   const [constraints, setConstraints] = useState<Constraints>({ genres: [], maxRuntime: null });
   const [strategy, setStrategy] = useState<Strategy>("least_misery");
+  const [urlNote, setUrlNote] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/reco-catalog")
       .then((response) => (response.ok ? response.json() : Promise.reject(response.status)))
-      .then(setCatalog)
+      .then((loaded: RecoMovie[]) => {
+        setCatalog(loaded);
+        const fromUrl = tastesFromUrl(params, loaded);
+        if (fromUrl) {
+          setMembers([fromUrl.member]);
+          setUrlNote(fromUrl.note);
+        }
+      })
       .catch(() => setError(true));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the URL tastes are applied once, when the catalog loads
   }, []);
 
   const byId = useMemo(() => new Map((catalog ?? []).map((movie) => [movie.id, movie])), [catalog]);
@@ -308,25 +351,18 @@ export function Recommender() {
         : [...constraints.genres, genre],
     });
 
-  return (
-    <div className="grid gap-8 lg:grid-cols-[380px_1fr]">
-      {/* --- Inputs --- */}
-      <div className="space-y-5">
-        <div className="flex rounded-lg border border-border p-1 text-sm">
-          {(["solo", "group"] as const).map((value) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => switchMode(value)}
-              className={`flex-1 rounded-md px-3 py-2 font-medium transition ${
-                mode === value ? "bg-amber-400 text-black" : "text-muted hover:text-foreground"
-              }`}
-            >
-              {value === "solo" ? "Just me" : "A group"}
-            </button>
-          ))}
-        </div>
+  const solo = mode === "solo";
+  const pill = (active: boolean) =>
+    `rounded-full px-2.5 py-1 text-xs ring-1 ring-inset transition ${
+      active ? "bg-amber-400 font-medium text-black ring-amber-400" : "text-muted ring-border hover:text-foreground"
+    }`;
+  // Popular movies to click on, so that nobody has to start from an empty search box
+  const starters = solo && !hasTastes(members[0]) ? catalog.filter((movie) => movie.poster).slice(0, 8) : [];
 
+  return (
+    <div className="space-y-8">
+      {/* --- Tastes --- */}
+      <div className={solo ? "mx-auto max-w-2xl text-center" : "mx-auto max-w-2xl divide-y divide-border"}>
         {activeMembers.map((member, index) => (
           <MemberCard
             key={index}
@@ -336,153 +372,162 @@ export function Recommender() {
             people={people}
             genres={genres}
             byId={byId}
-            canRemove={mode === "group" && members.length > 2}
+            solo={solo}
+            canRemove={!solo && members.length > 2}
             onChange={(updated) => setMembers(members.map((m, i) => (i === index ? updated : m)))}
             onRemove={() => setMembers(members.filter((_, i) => i !== index))}
           />
         ))}
+        {urlNote && <p className="pt-3 text-sm text-muted">{urlNote}</p>}
+      </div>
 
-        <div className="flex flex-wrap gap-3 text-sm">
-          {mode === "group" && members.length < 5 && (
-            <button
-              type="button"
-              onClick={() => setMembers([...members, emptyMember(`Friend ${members.length}`)])}
-              className="rounded-lg border border-border px-3 py-2 hover:bg-surface"
-            >
-              + Add a member
-            </button>
-          )}
-          <button type="button" onClick={loadExample} className="rounded-lg border border-border px-3 py-2 hover:bg-surface">
-            Try an example
-          </button>
-        </div>
-
-        <div className="rounded-xl border border-border bg-surface p-4">
-          <p className="font-semibold">Tonight</p>
-          <select
-            value={constraints.maxRuntime ?? ""}
-            onChange={(event) =>
-              setConstraints({ ...constraints, maxRuntime: event.target.value ? Number(event.target.value) : null })
-            }
-            aria-label="Maximum runtime"
-            className="mt-3 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-amber-400"
-          >
-            {RUNTIMES.map((runtime) => (
-              <option key={runtime.label} value={runtime.value ?? ""}>
-                {runtime.label}
-              </option>
-            ))}
-          </select>
-          <p className="mt-4 text-xs text-muted">In the mood for…</p>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {genres.map((genre) => (
+      {starters.length > 0 && (
+        <div>
+          <p className="mb-3 text-center text-sm text-muted">Or start with a favorite</p>
+          <div className="grid grid-cols-4 gap-3 sm:grid-cols-8">
+            {starters.map((movie) => (
               <button
-                key={genre}
+                key={movie.id}
                 type="button"
-                onClick={() => toggleGenre(genre)}
-                className={`rounded-full px-2.5 py-1 text-xs ring-1 ring-inset transition ${
-                  constraints.genres.includes(genre)
-                    ? "bg-amber-400 text-black ring-amber-400"
-                    : "text-muted ring-border hover:text-foreground"
-                }`}
+                onClick={() => setMembers([{ ...members[0], likes: [movie.id] }, ...members.slice(1)])}
+                className="overflow-hidden rounded-lg ring-1 ring-border transition hover:ring-amber-400"
+                aria-label={`I love ${movie.title}`}
               >
-                {genre}
+                <img src={posterUrl(movie.poster)!} alt="" className="aspect-[2/3] w-full object-cover" />
               </button>
             ))}
           </div>
         </div>
+      )}
 
-        {mode === "group" && (
-          <div className="rounded-xl border border-border bg-surface p-4">
-            <p className="font-semibold">Group strategy</p>
-            <div className="mt-3 space-y-2">
+      {/* --- Who is watching, and tonight's constraints: one labelled row per setting --- */}
+      <dl className="grid grid-cols-[4.5rem_1fr] items-baseline gap-x-4 gap-y-3 border-y border-border py-4 text-xs">
+        <dt className="text-muted">Watching</dt>
+        <dd className="flex flex-wrap items-center gap-1.5">
+          {(["solo", "group"] as const).map((value) => (
+            <button key={value} type="button" onClick={() => switchMode(value)} className={pill(mode === value)}>
+              {value === "solo" ? "Just me" : "A group"}
+            </button>
+          ))}
+          {!solo && members.length < 5 && (
+            <button
+              type="button"
+              onClick={() => setMembers([...members, emptyMember(`Friend ${members.length}`)])}
+              className="px-2 text-amber-400 hover:text-amber-300"
+            >
+              + Add a member
+            </button>
+          )}
+          <button type="button" onClick={loadExample} className="ml-auto px-2 text-amber-400 hover:text-amber-300">
+            Try an example
+          </button>
+        </dd>
+
+        <dt className="text-muted">Length</dt>
+        <dd className="flex flex-wrap gap-1.5">
+          {RUNTIMES.map((runtime) => (
+            <button
+              key={runtime.label}
+              type="button"
+              onClick={() => setConstraints({ ...constraints, maxRuntime: runtime.value })}
+              className={pill(constraints.maxRuntime === runtime.value)}
+            >
+              {runtime.label}
+            </button>
+          ))}
+        </dd>
+
+        <dt className="text-muted">Mood</dt>
+        <dd className="flex flex-wrap gap-1.5">
+          {genres.map((genre) => (
+            <button
+              key={genre}
+              type="button"
+              onClick={() => toggleGenre(genre)}
+              className={pill(constraints.genres.includes(genre))}
+            >
+              {genre}
+            </button>
+          ))}
+        </dd>
+
+        {!solo && (
+          <>
+            <dt className="text-muted">Strategy</dt>
+            <dd className="flex flex-wrap items-center gap-1.5">
               {(Object.keys(STRATEGIES) as Strategy[]).map((key) => (
-                <label key={key} className="flex cursor-pointer gap-3 text-sm">
-                  <input
-                    type="radio"
-                    name="strategy"
-                    checked={strategy === key}
-                    onChange={() => setStrategy(key)}
-                    className="mt-1 accent-amber-400"
-                  />
-                  <span>
-                    <span className="font-medium">{STRATEGIES[key].label}</span>
-                    <span className="block text-muted">{STRATEGIES[key].description}</span>
-                  </span>
-                </label>
+                <button key={key} type="button" onClick={() => setStrategy(key)} className={pill(strategy === key)}>
+                  {STRATEGIES[key].label}
+                </button>
               ))}
-            </div>
-          </div>
+              <span className="ml-2 text-muted">{STRATEGIES[strategy].description}</span>
+            </dd>
+          </>
         )}
-      </div>
+      </dl>
 
       {/* --- Results --- */}
-      <div>
-        {results.length === 0 ? (
-          <div className="flex h-full min-h-64 flex-col items-center justify-center rounded-xl border border-dashed border-border p-8 text-center text-muted">
-            <p className="text-4xl">🍿</p>
-            <p className="mt-3 max-w-sm">
-              Add movies, directors, actors or genres you love{mode === "group" ? " for each member" : ""}, and
-              recommendations will appear here, each with its explanation.
-            </p>
-          </div>
-        ) : (
-          <ol className="space-y-3">
-            {results.map((result, rank) => (
-              <li key={result.movie.id} className="flex gap-4 rounded-xl border border-border bg-surface p-3">
-                {result.movie.poster ? (
-                  <img
-                    src={posterUrl(result.movie.poster)!}
-                    alt={`Poster of ${result.movie.title}`}
-                    loading="lazy"
-                    className="h-36 w-24 shrink-0 rounded-lg object-cover"
-                  />
-                ) : (
-                  <div className="h-36 w-24 shrink-0 rounded-lg bg-background" />
-                )}
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-3">
-                    <h3 className="font-semibold">
-                      <span className="text-muted">{rank + 1}.</span> {result.movie.title}
-                    </h3>
-                    <span className="shrink-0 rounded-md bg-amber-400 px-2 py-0.5 text-sm font-bold text-black">
-                      {Math.round(result.score * 100)}%
-                    </span>
-                  </div>
-                  <p className="mt-0.5 text-xs text-muted">
-                    {[
-                      result.movie.year,
-                      result.movie.runtime ? `${result.movie.runtime} min` : null,
-                      result.movie.genres.slice(0, 3).join(", "),
-                      result.movie.directors[0] ? `by ${result.movie.directors[0]}` : null,
-                      result.movie.rating != null ? `★ ${result.movie.rating.toFixed(1)} IMDb` : null,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </p>
-                  <ul className="mt-2 space-y-1.5 text-sm">
-                    {result.members.map((member, m) => (
-                      <li key={m} className="flex items-start gap-2">
-                        {result.members.length > 1 && (
-                          <span className="mt-1 flex w-28 shrink-0 items-center gap-1.5 text-xs">
-                            <span className={`h-2 w-2 rounded-full ${MEMBER_COLORS[m % MEMBER_COLORS.length]}`} />
-                            <span className="truncate">{member.name}</span>
-                            <span className="text-muted">{Math.round(member.score * 100)}%</span>
-                          </span>
-                        )}
-                        <span className="text-muted">
-                          {member.reasons[0] ?? "A well-rated movie close to your tastes"}
-                          {member.reasons[1] && <span className="hidden sm:inline"> · {member.reasons[1]}</span>}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
+      {results.length === 0 ? (
+        !solo && (
+          <p className="text-center text-sm text-muted">
+            Add what each member loves, and the movies that work for everyone will appear here.
+          </p>
+        )
+      ) : (
+        <ol className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 lg:grid-cols-5">
+          {results.map((result, rank) => (
+            <li key={result.movie.id}>
+              <a
+                href={`https://www.themoviedb.org/movie/${result.movie.id}`}
+                target="_blank"
+                rel="noreferrer"
+                className="group block"
+              >
+                <div className="relative overflow-hidden rounded-lg ring-1 ring-border transition group-hover:ring-amber-400/60">
+                  {result.movie.poster ? (
+                    <img
+                      src={posterUrl(result.movie.poster)!}
+                      alt={`Poster of ${result.movie.title}`}
+                      loading="lazy"
+                      className="aspect-[2/3] w-full object-cover"
+                    />
+                  ) : (
+                    <div className="aspect-[2/3] w-full bg-surface" />
+                  )}
+                  <span className="absolute right-2 top-2 rounded-md bg-amber-400 px-1.5 py-0.5 text-xs font-bold text-black">
+                    {Math.round(result.score * 100)}%
+                  </span>
                 </div>
-              </li>
-            ))}
-          </ol>
-        )}
-      </div>
+                <h3 className="mt-2 text-sm font-medium leading-snug group-hover:text-amber-300">
+                  <span className="text-muted">{rank + 1}.</span> {result.movie.title}
+                </h3>
+              </a>
+              <p className="mt-0.5 text-xs text-muted">
+                {[
+                  result.movie.year,
+                  result.movie.runtime ? `${result.movie.runtime} min` : null,
+                  result.movie.rating != null ? `★ ${result.movie.rating.toFixed(1)}` : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
+              <ul className="mt-1.5 space-y-1 text-xs text-muted">
+                {result.members.map((member, m) => (
+                  <li key={m}>
+                    {result.members.length > 1 && (
+                      <span className="flex items-center gap-1 text-foreground">
+                        <span className={`h-2 w-2 rounded-full ${MEMBER_COLORS[m % MEMBER_COLORS.length]}`} />
+                        {member.name} {Math.round(member.score * 100)}%
+                      </span>
+                    )}
+                    {member.reasons[0] ?? "A well-rated movie close to your tastes"}
+                  </li>
+                ))}
+              </ul>
+            </li>
+          ))}
+        </ol>
+      )}
     </div>
   );
 }

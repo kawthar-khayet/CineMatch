@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
+import { formatDate } from "@/lib/data";
+import { getStats } from "@/lib/queries";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -15,7 +17,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "CineMatch — Hype or Hidden Gem?",
+    default: "CineMatch — Hype Check and movie recommendations",
     template: "%s · CineMatch",
   },
   description:
@@ -23,13 +25,15 @@ export const metadata: Metadata = {
 };
 
 // short: label on small screens (the logo already links to the home page)
+// cta: shown as a button, so the recommendation service is visible on every page
 const NAV = [
-  { href: "/", label: "Home", short: null },
-  { href: "/hype-check", label: "Hype Check", short: "Hype Check" },
-  { href: "/recommend", label: "Recommend", short: "For you" },
+  { href: "/", label: "Home", short: null, cta: false },
+  { href: "/hype-check", label: "Hype Check", short: "Hype Check", cta: false },
+  { href: "/recommend", label: "Find my movie", short: "Find my movie", cta: true },
 ];
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const stats = await getStats();
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col font-sans">
@@ -46,9 +50,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`whitespace-nowrap rounded-md px-2 py-1.5 text-muted transition hover:bg-surface hover:text-foreground sm:px-3 ${
-                    item.short ? "" : "hidden sm:block"
-                  }`}
+                  className={`whitespace-nowrap rounded-md px-2 py-1.5 transition sm:px-3 ${
+                    item.cta
+                      ? "bg-amber-400 font-semibold text-black hover:bg-amber-300"
+                      : "text-muted hover:bg-surface hover:text-foreground"
+                  } ${item.short ? "" : "hidden sm:block"}`}
                 >
                   <span className="sm:hidden">{item.short}</span>
                   <span className="hidden sm:inline">{item.label}</span>
@@ -67,7 +73,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               watching tonight.
             </p>
             <p className="text-xs">
-              Data: TMDB, IMDb, MovieLens (GroupLens). This product uses the TMDB API but is not endorsed or certified
+              Data updated {formatDate(stats.published_at)}. Sources: TMDB, IMDb, MovieLens (GroupLens). This product uses the TMDB API but is not endorsed or certified
               by TMDB.
             </p>
           </div>

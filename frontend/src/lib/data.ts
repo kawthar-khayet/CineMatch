@@ -49,39 +49,34 @@ export type Stats = {
 
 export const CATEGORIES: Record<
   Category,
-  { label: string; emoji: string; rule: string; badge: string; accent: string }
+  { label: string; rule: string; badge: string; accent: string }
 > = {
   vraie_tendance: {
     label: "True trend",
-    emoji: "🔥",
     rule: "Trending and rated at least 7/10 on IMDb by at least 500 voters: the hype is deserved.",
     badge: "bg-orange-500/15 text-orange-300 ring-orange-500/30",
     accent: "text-orange-300",
   },
   buzz_trompeur: {
     label: "Overhyped",
-    emoji: "⚠️",
     rule: "Trending, but rated below 6/10 by at least 500 voters: more talked about than it deserves.",
     badge: "bg-red-500/15 text-red-300 ring-red-500/30",
     accent: "text-red-300",
   },
   pepite_cachee: {
     label: "Hidden gem",
-    emoji: "💎",
     rule: "Not trending, a movie rated at least 8/10 with 5,000 to 50,000 votes: excellent and little known.",
     badge: "bg-sky-500/15 text-sky-300 ring-sky-500/30",
     accent: "text-sky-300",
   },
   tendance_moyenne: {
     label: "Mixed reviews",
-    emoji: "😐",
     rule: "Trending, with a rating between 6 and 7/10 from at least 500 voters.",
     badge: "bg-zinc-500/15 text-zinc-300 ring-zinc-500/30",
     accent: "text-zinc-300",
   },
   tendance_non_notee: {
     label: "Not enough votes yet",
-    emoji: "⏳",
     rule: "Trending, but no IMDb rating yet, or fewer than 500 votes (often a movie that just came out).",
     badge: "bg-violet-500/15 text-violet-300 ring-violet-500/30",
     accent: "text-violet-300",
