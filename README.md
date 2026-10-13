@@ -171,8 +171,10 @@ L'indice croise le **buzz** (présence dans les tendances TMDB du jour) et la **
 | 🔥 **Vraie tendance** | En tendance et noté au moins 7/10 |
 | ⚠️ **Buzz trompeur** | En tendance mais noté moins de 6/10 |
 | 😐 Avis partagés | En tendance, noté entre 6 et 7/10 |
-| ⏳ Pas encore noté | En tendance, sans note IMDb (souvent une sortie récente) |
+| ⏳ Pas encore noté | En tendance, sans note IMDb ou avec moins de 1 000 votes (souvent une sortie récente) |
 | 💎 **Pépite cachée** | Hors tendance, un film noté au moins 8/10 avec 5 000 à 50 000 votes |
+
+Les trois premières catégories exigent au moins 1 000 votes IMDb, pour que la note soit fiable.
 
 Les seuils sont des variables dbt (`dbt_project.yml`), et chaque film classé reçoit une explication générée
 par le modèle, dans la langue du site : *« #1 trending, and well rated: 8.0/10 on IMDb »*.

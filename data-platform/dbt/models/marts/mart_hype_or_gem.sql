@@ -42,6 +42,8 @@ classified as (
         to_char(imdb_rating, 'FM90.0') as imdb_rating_text,
         case
             when is_trending and imdb_rating is null then 'tendance_non_notee'
+            -- noté par trop peu de votants : la note n'est pas encore fiable, on ne classe pas
+            when is_trending and coalesce(imdb_num_votes, 0) < {{ var('trending_min_votes') }} then 'tendance_non_notee'
             when is_trending and imdb_rating >= {{ var('true_trend_min_rating') }} then 'vraie_tendance'
             when is_trending and imdb_rating < {{ var('misleading_max_rating') }} then 'buzz_trompeur'
             when is_trending then 'tendance_moyenne'
