@@ -37,6 +37,7 @@ tar -C /src --exclude=node_modules --exclude=.next --exclude=.env.local -cf - . 
 cd /build
 npm ci --no-audit --no-fund
 npm run build
+cp .next/BUILD_ID /out/BUILD_ID
 cp -r .next/static .next/standalone/.next/static
 if [ -d public ]; then cp -r public .next/standalone/public; fi
 cd .next/standalone
@@ -58,16 +59,30 @@ az webapp deploy --resource-group $ResourceGroup --name $AppName --src-path $pac
 if ($LASTEXITCODE -ne 0) { throw "Envoi du paquet impossible : lire le message d'Azure ci-dessus" }
 
 $hostName = az webapp show --resource-group $ResourceGroup --name $AppName --query defaultHostName --output tsv
-Write-Host "     Paquet envoyé. Attente du démarrage du site (jusqu'à 5 minutes)..."
+
+# Le site garde ses pages en cache sur disque. Pendant le remplacement des fichiers, l'ancien serveur tourne encore
+# quelques instants : s'il régénère une page, il l'écrit avec l'ancien code par-dessus la nouvelle, et le nouveau
+# serveur la ressert pendant une heure (vu sur l'accueil). On demande donc au site de rafraîchir son cache, puis on
+# vérifie que l'accueil vient bien du nouveau build (son identifiant est dans la page), jusqu'à ce que ce soit le cas.
+$buildId = (Get-Content (Join-Path $outDir "BUILD_ID") -Raw).Trim()
+$secretLine = Get-Content $envFile | Where-Object { $_ -match "^SITE_REVALIDATE_SECRET=" } | Select-Object -Last 1
+$secret = if ($secretLine) { $secretLine.Substring("SITE_REVALIDATE_SECRET=".Length).Trim() } else { "" }
+if (-not $secret) { Write-Host "     SITE_REVALIDATE_SECRET absent de .env : le cache du site ne sera pas rafraîchi." }
+
+Write-Host "     Paquet envoyé. Attente du nouveau site (jusqu'à 5 minutes)..."
 $online = $false
 foreach ($attempt in 1..30) {
     try {
+        if ($secret) {
+            Invoke-WebRequest -Uri "https://$hostName/api/revalidate" -Method Post `
+                -Headers @{ Authorization = "Bearer $secret" } -UseBasicParsing -TimeoutSec 60 | Out-Null
+        }
         $response = Invoke-WebRequest -Uri "https://$hostName/" -UseBasicParsing -TimeoutSec 60
-        if ($response.StatusCode -eq 200) { $online = $true; break }
+        if ($response.StatusCode -eq 200 -and $response.Content.Contains($buildId)) { $online = $true; break }
     } catch { }
     Start-Sleep -Seconds 10
 }
-if (-not $online) { throw "Le site ne répond pas : voir les journaux avec  az webapp log tail --resource-group $ResourceGroup --name $AppName" }
+if (-not $online) { throw "Le site ne sert pas le nouveau build : voir les journaux avec  az webapp log tail --resource-group $ResourceGroup --name $AppName" }
 
 Write-Host ""
 Write-Host "Terminé. Le site est en ligne : https://$hostName"
